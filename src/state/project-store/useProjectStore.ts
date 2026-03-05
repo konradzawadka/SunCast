@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useReducer } from 'react'
 import type {
-  EdgeHeightConstraint,
   FaceConstraints,
   FootprintPolygon,
   ProjectData,
@@ -8,7 +7,7 @@ import type {
 } from '../../types/geometry'
 
 const STORAGE_KEY = 'suncast.project.v1'
-const SOLVER_CONFIG_VERSION = 'uc0.1'
+const SOLVER_CONFIG_VERSION = 'uc2'
 
 interface ProjectState {
   footprint: FootprintPolygon | null
@@ -25,14 +24,14 @@ type Action =
   | { type: 'COMMIT_FOOTPRINT' }
   | { type: 'SET_FOOTPRINT'; footprint: FootprintPolygon }
   | { type: 'SET_VERTEX_HEIGHT'; payload: VertexHeightConstraint }
-  | { type: 'SET_EDGE_HEIGHT'; payload: EdgeHeightConstraint }
+  | { type: 'SET_EDGE_HEIGHT'; payload: { edgeIndex: number; heightM: number } }
   | { type: 'CLEAR_VERTEX_HEIGHT'; vertexIndex: number }
   | { type: 'CLEAR_EDGE_HEIGHT'; edgeIndex: number }
   | { type: 'LOAD'; payload: ProjectData }
 
 const initialState: ProjectState = {
   footprint: null,
-  constraints: { vertexHeights: [], edgeHeights: [] },
+  constraints: { vertexHeights: [] },
   drawDraft: [],
   isDrawing: false,
 }
@@ -46,13 +45,50 @@ function setOrReplaceVertexConstraint(
   return next.sort((a, b) => a.vertexIndex - b.vertexIndex)
 }
 
-function setOrReplaceEdgeConstraint(
-  constraints: EdgeHeightConstraint[],
-  value: EdgeHeightConstraint,
-): EdgeHeightConstraint[] {
-  const next = constraints.filter((c) => c.edgeIndex !== value.edgeIndex)
-  next.push(value)
-  return next.sort((a, b) => a.edgeIndex - b.edgeIndex)
+function sanitizeVertexHeights(vertexHeights: VertexHeightConstraint[], vertexCount: number): VertexHeightConstraint[] {
+  const byIndex = new Map<number, number>()
+  for (const constraint of vertexHeights) {
+    if (constraint.vertexIndex < 0 || constraint.vertexIndex >= vertexCount) {
+      continue
+    }
+    byIndex.set(constraint.vertexIndex, constraint.heightM)
+  }
+  return Array.from(byIndex.entries())
+    .map(([vertexIndex, heightM]) => ({ vertexIndex, heightM }))
+    .sort((a, b) => a.vertexIndex - b.vertexIndex)
+}
+
+function migrateConstraints(constraints: FaceConstraints, footprint: FootprintPolygon | null): FaceConstraints {
+  if (!footprint) {
+    return { vertexHeights: [] }
+  }
+
+  const vertexCount = footprint.vertices.length
+  const byIndex = new Map<number, number>()
+
+  for (const constraint of constraints.vertexHeights) {
+    if (constraint.vertexIndex < 0 || constraint.vertexIndex >= vertexCount) {
+      continue
+    }
+    byIndex.set(constraint.vertexIndex, constraint.heightM)
+  }
+
+  // Legacy support: old projects may still contain edge constraints.
+  for (const edgeConstraint of constraints.edgeHeights ?? []) {
+    if (edgeConstraint.edgeIndex < 0 || edgeConstraint.edgeIndex >= vertexCount) {
+      continue
+    }
+    const start = edgeConstraint.edgeIndex
+    const end = (edgeConstraint.edgeIndex + 1) % vertexCount
+    byIndex.set(start, edgeConstraint.heightM)
+    byIndex.set(end, edgeConstraint.heightM)
+  }
+
+  return {
+    vertexHeights: Array.from(byIndex.entries())
+      .map(([vertexIndex, heightM]) => ({ vertexIndex, heightM }))
+      .sort((a, b) => a.vertexIndex - b.vertexIndex),
+  }
 }
 
 function reducer(state: ProjectState, action: Action): ProjectState {
@@ -84,7 +120,7 @@ function reducer(state: ProjectState, action: Action): ProjectState {
         footprint,
         isDrawing: false,
         drawDraft: [],
-        constraints: { vertexHeights: [], edgeHeights: [] },
+        constraints: { vertexHeights: [] },
       }
     }
     case 'SET_FOOTPRINT':
@@ -93,21 +129,45 @@ function reducer(state: ProjectState, action: Action): ProjectState {
         footprint: action.footprint,
       }
     case 'SET_VERTEX_HEIGHT':
+      if (!state.footprint) {
+        return state
+      }
       return {
         ...state,
         constraints: {
           ...state.constraints,
-          vertexHeights: setOrReplaceVertexConstraint(state.constraints.vertexHeights, action.payload),
+          vertexHeights: sanitizeVertexHeights(
+            setOrReplaceVertexConstraint(state.constraints.vertexHeights, action.payload),
+            state.footprint.vertices.length,
+          ),
         },
       }
-    case 'SET_EDGE_HEIGHT':
+    case 'SET_EDGE_HEIGHT': {
+      if (!state.footprint) {
+        return state
+      }
+      const vertexCount = state.footprint.vertices.length
+      if (action.payload.edgeIndex < 0 || action.payload.edgeIndex >= vertexCount) {
+        return state
+      }
+      const start = action.payload.edgeIndex
+      const end = (action.payload.edgeIndex + 1) % vertexCount
+      let nextVertexHeights = setOrReplaceVertexConstraint(state.constraints.vertexHeights, {
+        vertexIndex: start,
+        heightM: action.payload.heightM,
+      })
+      nextVertexHeights = setOrReplaceVertexConstraint(nextVertexHeights, {
+        vertexIndex: end,
+        heightM: action.payload.heightM,
+      })
       return {
         ...state,
         constraints: {
           ...state.constraints,
-          edgeHeights: setOrReplaceEdgeConstraint(state.constraints.edgeHeights, action.payload),
+          vertexHeights: sanitizeVertexHeights(nextVertexHeights, vertexCount),
         },
       }
+    }
     case 'CLEAR_VERTEX_HEIGHT':
       return {
         ...state,
@@ -116,19 +176,31 @@ function reducer(state: ProjectState, action: Action): ProjectState {
           vertexHeights: state.constraints.vertexHeights.filter((c) => c.vertexIndex !== action.vertexIndex),
         },
       }
-    case 'CLEAR_EDGE_HEIGHT':
+    case 'CLEAR_EDGE_HEIGHT': {
+      if (!state.footprint) {
+        return state
+      }
+      const vertexCount = state.footprint.vertices.length
+      if (action.edgeIndex < 0 || action.edgeIndex >= vertexCount) {
+        return state
+      }
+      const start = action.edgeIndex
+      const end = (action.edgeIndex + 1) % vertexCount
       return {
         ...state,
         constraints: {
           ...state.constraints,
-          edgeHeights: state.constraints.edgeHeights.filter((c) => c.edgeIndex !== action.edgeIndex),
+          vertexHeights: state.constraints.vertexHeights.filter(
+            (c) => c.vertexIndex !== start && c.vertexIndex !== end,
+          ),
         },
       }
+    }
     case 'LOAD':
       return {
         ...state,
         footprint: action.payload.footprint,
-        constraints: action.payload.constraints,
+        constraints: migrateConstraints(action.payload.constraints, action.payload.footprint),
       }
     default:
       return state

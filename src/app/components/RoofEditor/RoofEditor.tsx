@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
-import type { EdgeHeightConstraint, FootprintPolygon, VertexHeightConstraint } from '../../../types/geometry'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FootprintPolygon, VertexHeightConstraint } from '../../../types/geometry'
 
 interface RoofEditorProps {
   footprint: FootprintPolygon | null
   vertexConstraints: VertexHeightConstraint[]
-  edgeConstraints: EdgeHeightConstraint[]
+  selectedVertexIndex: number | null
+  selectedEdgeIndex: number | null
   onSetVertex: (idx: number, value: number) => void
   onSetEdge: (idx: number, value: number) => void
   onClearVertex: (idx: number) => void
@@ -15,14 +16,11 @@ function indexByVertex(constraints: VertexHeightConstraint[]): Map<number, numbe
   return new Map(constraints.map((c) => [c.vertexIndex, c.heightM]))
 }
 
-function indexByEdge(constraints: EdgeHeightConstraint[]): Map<number, number> {
-  return new Map(constraints.map((c) => [c.edgeIndex, c.heightM]))
-}
-
 export function RoofEditor({
   footprint,
   vertexConstraints,
-  edgeConstraints,
+  selectedVertexIndex,
+  selectedEdgeIndex,
   onSetVertex,
   onSetEdge,
   onClearVertex,
@@ -30,9 +28,34 @@ export function RoofEditor({
 }: RoofEditorProps) {
   const [vertexInputs, setVertexInputs] = useState<Record<number, string>>({})
   const [edgeInputs, setEdgeInputs] = useState<Record<number, string>>({})
+  const vertexInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
+  const edgeInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   const vertexIndex = useMemo(() => indexByVertex(vertexConstraints), [vertexConstraints])
-  const edgeIndex = useMemo(() => indexByEdge(edgeConstraints), [edgeConstraints])
+
+  useEffect(() => {
+    if (selectedVertexIndex === null) {
+      return
+    }
+    const input = vertexInputRefs.current[selectedVertexIndex]
+    if (!input) {
+      return
+    }
+    input.focus()
+    input.select()
+  }, [selectedVertexIndex])
+
+  useEffect(() => {
+    if (selectedEdgeIndex === null) {
+      return
+    }
+    const input = edgeInputRefs.current[selectedEdgeIndex]
+    if (!input) {
+      return
+    }
+    input.focus()
+    input.select()
+  }, [selectedEdgeIndex])
 
   if (!footprint) {
     return (
@@ -48,18 +71,24 @@ export function RoofEditor({
   return (
     <section className="panel-section">
       <h3>Constraints</h3>
-      <p>Set vertex or edge heights in meters.</p>
+      <p>Set exactly 3 vertex heights in meters. Edge edit is a helper that sets both endpoint vertices.</p>
 
       <h4>Vertex Heights</h4>
       <div className="constraint-grid">
         {footprint.vertices.map((_, idx) => {
           const current = vertexIndex.get(idx)
           const textValue = vertexInputs[idx] ?? ''
+          const isSelectedByEdge =
+            selectedEdgeIndex !== null && (idx === selectedEdgeIndex || idx === (selectedEdgeIndex + 1) % vertexCount)
+          const isSelected = selectedVertexIndex === idx || isSelectedByEdge
 
           return (
-            <div key={`vertex-${idx}`} className="constraint-row">
+            <div key={`vertex-${idx}`} className={`constraint-row${isSelected ? ' constraint-row-selected' : ''}`}>
               <span>V{idx}</span>
               <input
+                ref={(node) => {
+                  vertexInputRefs.current[idx] = node
+                }}
                 type="number"
                 step="0.01"
                 placeholder={current !== undefined ? current.toFixed(2) : 'm'}
@@ -95,15 +124,24 @@ export function RoofEditor({
       <h4>Edge Heights</h4>
       <div className="constraint-grid">
         {Array.from({ length: vertexCount }).map((_, idx) => {
-          const current = edgeIndex.get(idx)
+          const startVertex = idx
+          const endVertex = (idx + 1) % vertexCount
+          const startHeight = vertexIndex.get(startVertex)
+          const endHeight = vertexIndex.get(endVertex)
+          const current =
+            startHeight !== undefined && endHeight !== undefined && startHeight === endHeight ? startHeight : undefined
           const textValue = edgeInputs[idx] ?? ''
+          const isSelected = selectedEdgeIndex === idx
 
           return (
-            <div key={`edge-${idx}`} className="constraint-row">
+            <div key={`edge-${idx}`} className={`constraint-row${isSelected ? ' constraint-row-selected' : ''}`}>
               <span>
                 E{idx} (V{idx}-V{(idx + 1) % vertexCount})
               </span>
               <input
+                ref={(node) => {
+                  edgeInputRefs.current[idx] = node
+                }}
                 type="number"
                 step="0.01"
                 placeholder={current !== undefined ? current.toFixed(2) : 'm'}
@@ -128,7 +166,11 @@ export function RoofEditor({
               >
                 Set
               </button>
-              <button type="button" onClick={() => onClearEdge(idx)} disabled={current === undefined}>
+              <button
+                type="button"
+                onClick={() => onClearEdge(idx)}
+                disabled={startHeight === undefined && endHeight === undefined}
+              >
                 Clear
               </button>
             </div>

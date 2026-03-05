@@ -1,6 +1,5 @@
 import type { FaceConstraints, FootprintPolygon, SolverWarning } from '../../types/geometry'
 import { projectPointsToLocalMeters } from '../projection/localMeters'
-import { RoofSolverError } from './errors'
 
 export interface NormalizedConstraintPoint {
   vertexIndex: number
@@ -8,8 +7,6 @@ export interface NormalizedConstraintPoint {
   y: number
   z: number
 }
-
-export const HEIGHT_CONFLICT_EPSILON_M = 0.01
 
 function toVertexKey(vertexIndex: number): string {
   return String(vertexIndex)
@@ -30,18 +27,7 @@ export function normalizeConstraints(
 
   const pushVertexHeight = (vertexIndex: number, heightM: number) => {
     const key = toVertexKey(vertexIndex)
-    const existing = heightsByVertex.get(key)
-    if (existing === undefined) {
-      heightsByVertex.set(key, heightM)
-      return
-    }
-
-    if (Math.abs(existing - heightM) > HEIGHT_CONFLICT_EPSILON_M) {
-      throw new RoofSolverError(
-        'CONSTRAINTS_CONFLICTING',
-        `Vertex ${vertexIndex} has conflicting height constraints`,
-      )
-    }
+    heightsByVertex.set(key, heightM)
   }
 
   for (const vertexConstraint of constraints.vertexHeights) {
@@ -53,21 +39,6 @@ export function normalizeConstraints(
       continue
     }
     pushVertexHeight(vertexConstraint.vertexIndex, vertexConstraint.heightM)
-  }
-
-  for (const edgeConstraint of constraints.edgeHeights) {
-    if (!ensureValidVertexIndex(edgeConstraint.edgeIndex, vertexCount)) {
-      warnings.push({
-        code: 'CONSTRAINT_INDEX_INVALID',
-        message: `Ignored invalid edge constraint index: ${edgeConstraint.edgeIndex}`,
-      })
-      continue
-    }
-
-    const start = edgeConstraint.edgeIndex
-    const end = (edgeConstraint.edgeIndex + 1) % vertexCount
-    pushVertexHeight(start, edgeConstraint.heightM)
-    pushVertexHeight(end, edgeConstraint.heightM)
   }
 
   const points: NormalizedConstraintPoint[] = []

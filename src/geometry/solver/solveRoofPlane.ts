@@ -6,10 +6,10 @@ import { normalizeConstraints } from './normalizeConstraints'
 import { validateFootprint } from './validation'
 
 const COLLINEARITY_AREA_EPSILON_M2 = 1e-6
-const PLANE_RESIDUAL_WARN_EPSILON_M = 0.03
+const REQUIRED_CONSTRAINT_COUNT = 3
 
 function ensureThreeNonCollinearPoints(points: Array<{ x: number; y: number }>): boolean {
-  if (points.length < 3) {
+  if (points.length < REQUIRED_CONSTRAINT_COUNT) {
     return false
   }
 
@@ -37,8 +37,14 @@ export function solveRoofPlane(footprint: FootprintPolygon, constraints: FaceCon
   }
 
   const { points, warnings } = normalizeConstraints(footprint, constraints)
-  if (points.length < 3) {
+  if (points.length < REQUIRED_CONSTRAINT_COUNT) {
     throw new RoofSolverError('CONSTRAINTS_INSUFFICIENT', 'At least 3 constrained points are required')
+  }
+  if (points.length > REQUIRED_CONSTRAINT_COUNT) {
+    throw new RoofSolverError(
+      'CONSTRAINTS_OVERCONSTRAINED',
+      'Plane requires exactly 3 vertex heights. Remove one constraint.',
+    )
   }
 
   if (!ensureThreeNonCollinearPoints(points)) {
@@ -49,20 +55,6 @@ export function solveRoofPlane(footprint: FootprintPolygon, constraints: FaceCon
   }
 
   const fit = fitPlane(points)
-
-  if (fit.usedLeastSquares) {
-    warnings.push({
-      code: 'CONSTRAINTS_OVERDETERMINED',
-      message: 'Over-constrained system solved with least-squares fit',
-    })
-  }
-
-  if (fit.rmsErrorM > PLANE_RESIDUAL_WARN_EPSILON_M) {
-    warnings.push({
-      code: 'CONSTRAINTS_RESIDUAL_HIGH',
-      message: `Constraint residual is high (${fit.rmsErrorM.toFixed(3)} m)`,
-    })
-  }
 
   const { points2d } = projectPointsToLocalMeters(footprint.vertices)
   const vertexHeightsM = points2d.map((point) => fit.plane.p * point.x + fit.plane.q * point.y + fit.plane.r)
@@ -75,4 +67,3 @@ export function solveRoofPlane(footprint: FootprintPolygon, constraints: FaceCon
     warnings,
   }
 }
-

@@ -17,7 +17,7 @@ export interface EdgeHeightConstraint {
 
 export interface FaceConstraints {
   vertexHeights: VertexHeightConstraint[]
-  edgeHeights: EdgeHeightConstraint[]
+  edgeHeights?: EdgeHeightConstraint[]
 }
 
 export interface RoofPlane {
@@ -30,6 +30,7 @@ export type SolverErrorCode =
   | 'FOOTPRINT_INVALID'
   | 'CONSTRAINTS_INSUFFICIENT'
   | 'CONSTRAINTS_COLLINEAR'
+  | 'CONSTRAINTS_OVERCONSTRAINED'
   | 'CONSTRAINTS_CONFLICTING'
 
 export type SolverWarningCode =

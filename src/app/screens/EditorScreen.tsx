@@ -11,6 +11,8 @@ import { RoofSolverError } from '../../geometry/solver/errors'
 
 export function EditorScreen() {
   const [orbitEnabled, setOrbitEnabled] = useState(false)
+  const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null)
+  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null)
   const {
     state,
     startDrawing,
@@ -25,6 +27,16 @@ export function EditorScreen() {
   } = useProjectStore()
 
   const footprintErrors = validateFootprint(state.footprint)
+
+  const vertexCount = state.footprint?.vertices.length ?? 0
+  const safeSelectedVertexIndex =
+    !state.footprint || state.isDrawing || selectedVertexIndex === null || selectedVertexIndex < 0 || selectedVertexIndex >= vertexCount
+      ? null
+      : selectedVertexIndex
+  const safeSelectedEdgeIndex =
+    !state.footprint || state.isDrawing || selectedEdgeIndex === null || selectedEdgeIndex < 0 || selectedEdgeIndex >= vertexCount
+      ? null
+      : selectedEdgeIndex
 
   const solved = useMemo(() => {
     if (!state.footprint || footprintErrors.length > 0) {
@@ -56,16 +68,29 @@ export function EditorScreen() {
         <DrawTools
           isDrawing={state.isDrawing}
           pointCount={state.drawDraft.length}
-          onStart={startDrawing}
+          onStart={() => {
+            setSelectedVertexIndex(null)
+            setSelectedEdgeIndex(null)
+            startDrawing()
+          }}
           onUndo={undoDraftPoint}
-          onCancel={cancelDrawing}
-          onCommit={commitFootprint}
+          onCancel={() => {
+            cancelDrawing()
+            setSelectedVertexIndex(null)
+            setSelectedEdgeIndex(null)
+          }}
+          onCommit={() => {
+            commitFootprint()
+            setSelectedVertexIndex(null)
+            setSelectedEdgeIndex(null)
+          }}
         />
 
         <RoofEditor
           footprint={state.footprint}
           vertexConstraints={state.constraints.vertexHeights}
-          edgeConstraints={state.constraints.edgeHeights}
+          selectedVertexIndex={safeSelectedVertexIndex}
+          selectedEdgeIndex={safeSelectedEdgeIndex}
           onSetVertex={setVertexHeight}
           onSetEdge={setEdgeHeight}
           onClearVertex={clearVertexHeight}
@@ -109,6 +134,21 @@ export function EditorScreen() {
           orbitEnabled={orbitEnabled}
           onToggleOrbit={() => setOrbitEnabled((enabled) => !enabled)}
           roofMesh={solved?.mesh ?? null}
+          vertexConstraints={state.constraints.vertexHeights}
+          selectedVertexIndex={safeSelectedVertexIndex}
+          selectedEdgeIndex={safeSelectedEdgeIndex}
+          onSelectVertex={(vertexIndex) => {
+            setSelectedVertexIndex(vertexIndex)
+            setSelectedEdgeIndex(null)
+          }}
+          onSelectEdge={(edgeIndex) => {
+            setSelectedEdgeIndex(edgeIndex)
+            setSelectedVertexIndex(null)
+          }}
+          onClearSelection={() => {
+            setSelectedVertexIndex(null)
+            setSelectedEdgeIndex(null)
+          }}
           showSolveHint={!solved?.solution}
           onMapClick={addDraftPoint}
         />

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { FootprintPolygon, RoofMeshData } from '../../../types/geometry'
+import type { FootprintPolygon, RoofMeshData, VertexHeightConstraint } from '../../../types/geometry'
 import { RoofMeshLayer } from '../../../rendering/roof-layer/RoofMeshLayer'
 
 interface MapViewProps {
@@ -10,6 +10,12 @@ interface MapViewProps {
   orbitEnabled: boolean
   onToggleOrbit: () => void
   roofMesh: RoofMeshData | null
+  vertexConstraints: VertexHeightConstraint[]
+  selectedVertexIndex: number | null
+  selectedEdgeIndex: number | null
+  onSelectVertex: (vertexIndex: number) => void
+  onSelectEdge: (edgeIndex: number) => void
+  onClearSelection: () => void
   showSolveHint: boolean
   onMapClick: (point: [number, number]) => void
 }
@@ -29,6 +35,9 @@ type MapFeature = GeoJSON.Feature<GeoJSON.Point | GeoJSON.LineString | GeoJSON.P
 const ORBIT_PITCH_DEG = 60
 const ORBIT_BEARING_DEG = -20
 const MAX_ORBIT_PITCH_DEG = 85
+const CLICK_HIT_TOLERANCE_PX = 10
+const EDGE_HIT_LAYER_ID = 'footprint-edge-hit'
+const VERTEX_HIT_LAYER_ID = 'footprint-vertex-hit'
 
 function toBounds(vertices: Array<[number, number]>): maplibregl.LngLatBoundsLike {
   let minLon = vertices[0][0]
@@ -49,6 +58,136 @@ function toBounds(vertices: Array<[number, number]>): maplibregl.LngLatBoundsLik
   ]
 }
 
+function toEdgeSourceFeatures(
+  vertices: Array<[number, number]>,
+  selectedEdgeIndex: number | null,
+): GeoJSON.Feature<GeoJSON.LineString>[] {
+  const features: GeoJSON.Feature<GeoJSON.LineString>[] = []
+  for (let i = 0; i < vertices.length; i += 1) {
+    features.push({
+      type: 'Feature',
+      properties: { edgeIndex: i, selected: selectedEdgeIndex === i ? 1 : 0 },
+      geometry: {
+        type: 'LineString',
+        coordinates: [vertices[i], vertices[(i + 1) % vertices.length]],
+      },
+    })
+  }
+  return features
+}
+
+function toVertexSourceFeatures(
+  vertices: Array<[number, number]>,
+  vertexHeights: Map<number, number>,
+  selectedVertexIndex: number | null,
+  selectedEdgeIndex: number | null,
+): GeoJSON.Feature<GeoJSON.Point>[] {
+  return vertices.map((vertex, idx) => {
+    const height = vertexHeights.get(idx)
+    const selectedByEdge =
+      selectedEdgeIndex !== null && (idx === selectedEdgeIndex || idx === (selectedEdgeIndex + 1) % vertices.length)
+    return {
+      type: 'Feature',
+      properties: {
+        vertexIndex: idx,
+        selected: selectedVertexIndex === idx || selectedByEdge ? 1 : 0,
+        heightLabel: height !== undefined ? `${height.toFixed(2)} m` : '',
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: vertex,
+      },
+    }
+  })
+}
+
+function toEdgeHeightLabelFeatures(
+  vertices: Array<[number, number]>,
+  vertexHeights: Map<number, number>,
+): GeoJSON.Feature<GeoJSON.Point>[] {
+  const features: GeoJSON.Feature<GeoJSON.Point>[] = []
+  for (let i = 0; i < vertices.length; i += 1) {
+    const next = (i + 1) % vertices.length
+    const hA = vertexHeights.get(i)
+    const hB = vertexHeights.get(next)
+    if (hA === undefined || hB === undefined || hA !== hB) {
+      continue
+    }
+
+    const a = vertices[i]
+    const b = vertices[next]
+    features.push({
+      type: 'Feature',
+      properties: {
+        edgeIndex: i,
+        edgeHeightLabel: `${hA.toFixed(2)} m`,
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
+      },
+    })
+  }
+  return features
+}
+
+function updateInteractiveSources(
+  map: maplibregl.Map,
+  nextFootprint: FootprintPolygon | null,
+  nextVertexConstraints: VertexHeightConstraint[],
+  nextSelectedVertex: number | null,
+  nextSelectedEdge: number | null,
+): void {
+  const footprintSource = map.getSource('footprint') as maplibregl.GeoJSONSource | undefined
+  const edgeSource = map.getSource('footprint-edges') as maplibregl.GeoJSONSource | undefined
+  const vertexSource = map.getSource('footprint-vertices') as maplibregl.GeoJSONSource | undefined
+  const edgeLabelSource = map.getSource('footprint-edge-labels') as maplibregl.GeoJSONSource | undefined
+
+  if (!footprintSource || !edgeSource || !vertexSource || !edgeLabelSource) {
+    return
+  }
+
+  if (!nextFootprint || nextFootprint.vertices.length < 3) {
+    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
+    footprintSource.setData(empty)
+    edgeSource.setData(empty)
+    vertexSource.setData(empty)
+    edgeLabelSource.setData(empty)
+    return
+  }
+
+  const heightMap = new Map<number, number>(nextVertexConstraints.map((constraint) => [constraint.vertexIndex, constraint.heightM]))
+
+  footprintSource.setData({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [toRing(nextFootprint.vertices)],
+        },
+      },
+    ],
+  })
+
+  edgeSource.setData({
+    type: 'FeatureCollection',
+    features: toEdgeSourceFeatures(nextFootprint.vertices, nextSelectedEdge),
+  })
+
+  vertexSource.setData({
+    type: 'FeatureCollection',
+    features: toVertexSourceFeatures(nextFootprint.vertices, heightMap, nextSelectedVertex, nextSelectedEdge),
+  })
+
+  edgeLabelSource.setData({
+    type: 'FeatureCollection',
+    features: toEdgeHeightLabelFeatures(nextFootprint.vertices, heightMap),
+  })
+}
+
 export function MapView({
   footprint,
   drawDraft,
@@ -56,6 +195,12 @@ export function MapView({
   orbitEnabled,
   onToggleOrbit,
   roofMesh,
+  vertexConstraints,
+  selectedVertexIndex,
+  selectedEdgeIndex,
+  onSelectVertex,
+  onSelectEdge,
+  onClearSelection,
   showSolveHint,
   onMapClick,
 }: MapViewProps) {
@@ -64,9 +209,15 @@ export function MapView({
   const roofLayerRef = useRef<RoofMeshLayer | null>(null)
   const drawingRef = useRef(isDrawing)
   const onClickRef = useRef(onMapClick)
+  const onSelectVertexRef = useRef(onSelectVertex)
+  const onSelectEdgeRef = useRef(onSelectEdge)
+  const onClearSelectionRef = useRef(onClearSelection)
   const footprintRef = useRef(footprint)
   const draftRef = useRef(drawDraft)
   const roofMeshRef = useRef(roofMesh)
+  const selectedVertexRef = useRef(selectedVertexIndex)
+  const selectedEdgeRef = useRef(selectedEdgeIndex)
+  const vertexConstraintsRef = useRef(vertexConstraints)
 
   useEffect(() => {
     drawingRef.current = isDrawing
@@ -75,6 +226,18 @@ export function MapView({
   useEffect(() => {
     onClickRef.current = onMapClick
   }, [onMapClick])
+
+  useEffect(() => {
+    onSelectVertexRef.current = onSelectVertex
+  }, [onSelectVertex])
+
+  useEffect(() => {
+    onSelectEdgeRef.current = onSelectEdge
+  }, [onSelectEdge])
+
+  useEffect(() => {
+    onClearSelectionRef.current = onClearSelection
+  }, [onClearSelection])
 
   useEffect(() => {
     footprintRef.current = footprint
@@ -87,6 +250,18 @@ export function MapView({
   useEffect(() => {
     roofMeshRef.current = roofMesh
   }, [roofMesh])
+
+  useEffect(() => {
+    selectedVertexRef.current = selectedVertexIndex
+  }, [selectedVertexIndex])
+
+  useEffect(() => {
+    selectedEdgeRef.current = selectedEdgeIndex
+  }, [selectedEdgeIndex])
+
+  useEffect(() => {
+    vertexConstraintsRef.current = vertexConstraints
+  }, [vertexConstraints])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -108,6 +283,18 @@ export function MapView({
             attribution: 'Esri, Maxar, Earthstar Geographics, and the GIS User Community',
           },
           footprint: {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          },
+          'footprint-edges': {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          },
+          'footprint-vertices': {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          },
+          'footprint-edge-labels': {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] },
           },
@@ -134,6 +321,59 @@ export function MapView({
             paint: {
               'line-color': '#f7cc52',
               'line-width': 2,
+            },
+          },
+          {
+            id: EDGE_HIT_LAYER_ID,
+            type: 'line',
+            source: 'footprint-edges',
+            paint: {
+              'line-color': '#d8ad31',
+              'line-width': ['case', ['==', ['get', 'selected'], 1], 5, 3],
+              'line-opacity': ['case', ['==', ['get', 'selected'], 1], 0.88, 0.42],
+            },
+          },
+          {
+            id: VERTEX_HIT_LAYER_ID,
+            type: 'circle',
+            source: 'footprint-vertices',
+            paint: {
+              'circle-color': ['case', ['==', ['get', 'selected'], 1], '#5fe8ff', '#ffd167'],
+              'circle-radius': ['case', ['==', ['get', 'selected'], 1], 7, 5],
+              'circle-stroke-color': '#0f1316',
+              'circle-stroke-width': 1.25,
+            },
+          },
+          {
+            id: 'vertex-height-labels',
+            type: 'symbol',
+            source: 'footprint-vertices',
+            layout: {
+              'text-field': ['get', 'heightLabel'],
+              'text-size': 11,
+              'text-offset': [0, -1.4],
+              'text-font': ['Open Sans Semibold'],
+            },
+            paint: {
+              'text-color': '#d5f4ff',
+              'text-halo-color': '#0f171b',
+              'text-halo-width': 1.1,
+            },
+          },
+          {
+            id: 'edge-height-labels',
+            type: 'symbol',
+            source: 'footprint-edge-labels',
+            layout: {
+              'text-field': ['get', 'edgeHeightLabel'],
+              'text-size': 11,
+              'text-offset': [0, 0.8],
+              'text-font': ['Open Sans Semibold'],
+            },
+            paint: {
+              'text-color': '#ffe59a',
+              'text-halo-color': '#0f171b',
+              'text-halo-width': 1,
             },
           },
           {
@@ -170,23 +410,13 @@ export function MapView({
       const roofLayer = new RoofMeshLayer('roof-mesh-layer')
       roofLayerRef.current = roofLayer
       map.addLayer(roofLayer)
-
-      const footprintSource = map.getSource('footprint') as maplibregl.GeoJSONSource | undefined
-      if (footprintSource && footprintRef.current) {
-        footprintSource.setData({
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'Polygon',
-                coordinates: [toRing(footprintRef.current.vertices)],
-              },
-            },
-          ],
-        })
-      }
+      updateInteractiveSources(
+        map,
+        footprintRef.current,
+        vertexConstraintsRef.current,
+        selectedVertexRef.current,
+        selectedEdgeRef.current,
+      )
 
       const draftSource = map.getSource('draft') as maplibregl.GeoJSONSource | undefined
       if (draftSource) {
@@ -218,10 +448,46 @@ export function MapView({
     })
 
     map.on('click', (event) => {
-      if (!drawingRef.current) {
+      if (drawingRef.current) {
+        onClickRef.current([event.lngLat.lng, event.lngLat.lat])
         return
       }
-      onClickRef.current([event.lngLat.lng, event.lngLat.lat])
+
+      const currentFootprint = footprintRef.current
+      if (!currentFootprint || currentFootprint.vertices.length < 3) {
+        onClearSelectionRef.current()
+        return
+      }
+
+      const hitBounds: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [event.point.x - CLICK_HIT_TOLERANCE_PX, event.point.y - CLICK_HIT_TOLERANCE_PX],
+        [event.point.x + CLICK_HIT_TOLERANCE_PX, event.point.y + CLICK_HIT_TOLERANCE_PX],
+      ]
+      const hits = map.queryRenderedFeatures(hitBounds, {
+        layers: [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID],
+      })
+
+      const vertexHit = hits.find((feature) => feature.layer.id === VERTEX_HIT_LAYER_ID)
+      if (vertexHit?.properties && vertexHit.properties.vertexIndex !== undefined) {
+        const rawVertexIndex = vertexHit.properties.vertexIndex
+        const vertexIndex = typeof rawVertexIndex === 'number' ? rawVertexIndex : Number(rawVertexIndex)
+        if (Number.isInteger(vertexIndex)) {
+          onSelectVertexRef.current(vertexIndex)
+          return
+        }
+      }
+
+      const edgeHit = hits.find((feature) => feature.layer.id === EDGE_HIT_LAYER_ID)
+      if (edgeHit?.properties && edgeHit.properties.edgeIndex !== undefined) {
+        const rawEdgeIndex = edgeHit.properties.edgeIndex
+        const edgeIndex = typeof rawEdgeIndex === 'number' ? rawEdgeIndex : Number(rawEdgeIndex)
+        if (Number.isInteger(edgeIndex)) {
+          onSelectEdgeRef.current(edgeIndex)
+          return
+        }
+      }
+
+      onClearSelectionRef.current()
     })
 
     mapRef.current = map
@@ -239,30 +505,8 @@ export function MapView({
       return
     }
 
-    const source = map.getSource('footprint') as maplibregl.GeoJSONSource | undefined
-    if (!source) {
-      return
-    }
-
-    if (!footprint) {
-      source.setData({ type: 'FeatureCollection', features: [] })
-      return
-    }
-
-    source.setData({
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Polygon',
-            coordinates: [toRing(footprint.vertices)],
-          },
-        },
-      ],
-    })
-  }, [footprint])
+    updateInteractiveSources(map, footprint, vertexConstraints, selectedVertexIndex, selectedEdgeIndex)
+  }, [footprint, selectedEdgeIndex, selectedVertexIndex, vertexConstraints])
 
   useEffect(() => {
     const map = mapRef.current
@@ -354,6 +598,7 @@ export function MapView({
       <button type="button" className="map-orbit-toggle" onClick={onToggleOrbit}>
         {orbitEnabled ? 'Exit orbit' : 'Orbit'}
       </button>
+      {!isDrawing && footprint && <div className="map-selection-hint">Click a vertex or edge to edit its height</div>}
       {orbitEnabled && showSolveHint && footprint && (
         <div className="map-hint">Add heights to solve plane</div>
       )}
