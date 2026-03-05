@@ -8,7 +8,7 @@ import { solveRoofPlane } from '../../geometry/solver/solveRoofPlane'
 import { generateRoofMesh } from '../../geometry/mesh/generateRoofMesh'
 import { computeRoofMetrics } from '../../geometry/solver/metrics'
 import { RoofSolverError } from '../../geometry/solver/errors'
-import type { RoofMeshData, SolvedRoofPlane } from '../../types/geometry'
+import type { LngLat, RoofMeshData, SolvedRoofPlane } from '../../types/geometry'
 
 interface SolvedEntry {
   footprintId: string
@@ -21,6 +21,7 @@ export function EditorScreen() {
   const [orbitEnabled, setOrbitEnabled] = useState(false)
   const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null)
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null)
+  const [interactionError, setInteractionError] = useState<string | null>(null)
   const {
     state,
     activeFootprint,
@@ -32,7 +33,10 @@ export function EditorScreen() {
     commitFootprint,
     setActiveFootprint,
     deleteFootprint,
+    moveVertex,
+    moveEdge,
     setVertexHeight,
+    setVertexHeights,
     setEdgeHeight,
     clearVertexHeight,
     clearEdgeHeight,
@@ -56,6 +60,100 @@ export function EditorScreen() {
     !activeFootprint || state.isDrawing || selectedEdgeIndex === null || selectedEdgeIndex < 0 || selectedEdgeIndex >= vertexCount
       ? null
       : selectedEdgeIndex
+  const constraintMap = useMemo(
+    () => new Map(activeConstraints.vertexHeights.map((constraint) => [constraint.vertexIndex, constraint.heightM])),
+    [activeConstraints.vertexHeights],
+  )
+
+  const applyVertexHeight = (vertexIndex: number, heightM: number): boolean => {
+    const applied = setVertexHeight(vertexIndex, heightM)
+    if (!applied) {
+      setInteractionError('Max 3 height points')
+      return false
+    }
+    setInteractionError(null)
+    return true
+  }
+
+  const applyEdgeHeight = (edgeIndex: number, heightM: number): boolean => {
+    const applied = setEdgeHeight(edgeIndex, heightM)
+    if (!applied) {
+      setInteractionError('Max 3 height points')
+      return false
+    }
+    setInteractionError(null)
+    return true
+  }
+
+  const moveVertexIfValid = (vertexIndex: number, point: LngLat): boolean => {
+    if (!activeFootprint) {
+      return false
+    }
+    const nextVertices = [...activeFootprint.vertices]
+    if (vertexIndex < 0 || vertexIndex >= nextVertices.length) {
+      return false
+    }
+    nextVertices[vertexIndex] = point
+    const errors = validateFootprint({ ...activeFootprint, vertices: nextVertices })
+    if (errors.length > 0) {
+      return false
+    }
+    moveVertex(vertexIndex, point)
+    setInteractionError(null)
+    return true
+  }
+
+  const moveEdgeIfValid = (edgeIndex: number, delta: LngLat): boolean => {
+    if (!activeFootprint) {
+      return false
+    }
+    const vertexTotal = activeFootprint.vertices.length
+    if (edgeIndex < 0 || edgeIndex >= vertexTotal) {
+      return false
+    }
+    const [deltaLon, deltaLat] = delta
+    const start = edgeIndex
+    const end = (edgeIndex + 1) % vertexTotal
+    const nextVertices = [...activeFootprint.vertices]
+    nextVertices[start] = [nextVertices[start][0] + deltaLon, nextVertices[start][1] + deltaLat]
+    nextVertices[end] = [nextVertices[end][0] + deltaLon, nextVertices[end][1] + deltaLat]
+    const errors = validateFootprint({ ...activeFootprint, vertices: nextVertices })
+    if (errors.length > 0) {
+      return false
+    }
+    moveEdge(edgeIndex, delta)
+    setInteractionError(null)
+    return true
+  }
+
+  const applyHeightStep = (stepM: number) => {
+    if (!activeFootprint) {
+      return
+    }
+
+    if (safeSelectedVertexIndex !== null) {
+      const current = constraintMap.get(safeSelectedVertexIndex) ?? 0
+      applyVertexHeight(safeSelectedVertexIndex, current + stepM)
+      return
+    }
+
+    if (safeSelectedEdgeIndex !== null) {
+      const vertexTotal = activeFootprint.vertices.length
+      const start = safeSelectedEdgeIndex
+      const end = (safeSelectedEdgeIndex + 1) % vertexTotal
+      const nextStart = (constraintMap.get(start) ?? 0) + stepM
+      const nextEnd = (constraintMap.get(end) ?? 0) + stepM
+      const applied = setVertexHeights([
+        { vertexIndex: start, heightM: nextStart },
+        { vertexIndex: end, heightM: nextEnd },
+      ])
+      if (!applied) {
+        setInteractionError('Max 3 height points')
+        return
+      }
+      setInteractionError(null)
+    }
+  }
 
   const solved = useMemo(() => {
     const solvedEntries: SolvedEntry[] = []
@@ -117,6 +215,7 @@ export function EditorScreen() {
           onStart={() => {
             setSelectedVertexIndex(null)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
             startDrawing()
           }}
           onUndo={undoDraftPoint}
@@ -124,11 +223,13 @@ export function EditorScreen() {
             cancelDrawing()
             setSelectedVertexIndex(null)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
           }}
           onCommit={() => {
             commitFootprint()
             setSelectedVertexIndex(null)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
           }}
         />
 
@@ -149,6 +250,7 @@ export function EditorScreen() {
                       setActiveFootprint(footprint.id)
                       setSelectedVertexIndex(null)
                       setSelectedEdgeIndex(null)
+                      setInteractionError(null)
                     }}
                   >
                     {footprint.id}
@@ -168,6 +270,7 @@ export function EditorScreen() {
               deleteFootprint(state.activeFootprintId)
               setSelectedVertexIndex(null)
               setSelectedEdgeIndex(null)
+              setInteractionError(null)
             }}
           >
             Delete Active Footprint
@@ -179,10 +282,11 @@ export function EditorScreen() {
           vertexConstraints={activeConstraints.vertexHeights}
           selectedVertexIndex={safeSelectedVertexIndex}
           selectedEdgeIndex={safeSelectedEdgeIndex}
-          onSetVertex={setVertexHeight}
-          onSetEdge={setEdgeHeight}
+          onSetVertex={applyVertexHeight}
+          onSetEdge={applyEdgeHeight}
           onClearVertex={clearVertexHeight}
           onClearEdge={clearEdgeHeight}
+          onConstraintLimitExceeded={() => setInteractionError('Max 3 height points')}
         />
 
         <section className="panel-section">
@@ -192,6 +296,7 @@ export function EditorScreen() {
               {error}
             </p>
           ))}
+          {interactionError && <p className="status-error">{interactionError}</p>}
 
           {solved.activeError && <p className="status-error">{solved.activeError}</p>}
 
@@ -230,20 +335,28 @@ export function EditorScreen() {
           onSelectVertex={(vertexIndex) => {
             setSelectedVertexIndex(vertexIndex)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
           }}
           onSelectEdge={(edgeIndex) => {
             setSelectedEdgeIndex(edgeIndex)
             setSelectedVertexIndex(null)
+            setInteractionError(null)
           }}
           onSelectFootprint={(footprintId) => {
             setActiveFootprint(footprintId)
             setSelectedVertexIndex(null)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
           }}
           onClearSelection={() => {
             setSelectedVertexIndex(null)
             setSelectedEdgeIndex(null)
+            setInteractionError(null)
           }}
+          onMoveVertex={moveVertexIfValid}
+          onMoveEdge={moveEdgeIfValid}
+          onMoveRejected={() => setInteractionError('Footprint cannot self-intersect')}
+          onAdjustHeight={applyHeightStep}
           showSolveHint={!solved.activeSolved}
           onMapClick={addDraftPoint}
         />

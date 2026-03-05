@@ -31,7 +31,10 @@ type Action =
   | { type: 'COMMIT_FOOTPRINT' }
   | { type: 'SET_ACTIVE_FOOTPRINT'; footprintId: string }
   | { type: 'DELETE_FOOTPRINT'; footprintId: string }
+  | { type: 'MOVE_VERTEX'; payload: { vertexIndex: number; point: [number, number] } }
+  | { type: 'MOVE_EDGE'; payload: { edgeIndex: number; delta: [number, number] } }
   | { type: 'SET_VERTEX_HEIGHT'; payload: VertexHeightConstraint }
+  | { type: 'SET_VERTEX_HEIGHTS'; payload: VertexHeightConstraint[] }
   | { type: 'SET_EDGE_HEIGHT'; payload: { edgeIndex: number; heightM: number } }
   | { type: 'CLEAR_VERTEX_HEIGHT'; vertexIndex: number }
   | { type: 'CLEAR_EDGE_HEIGHT'; edgeIndex: number }
@@ -266,6 +269,46 @@ function reducer(state: ProjectState, action: Action): ProjectState {
         return state
       }
       return removeFootprintAndPickActive(state, action.footprintId)
+    case 'MOVE_VERTEX':
+      return applyToActiveFootprint(state, (entry) => {
+        const vertexCount = entry.footprint.vertices.length
+        const { vertexIndex, point } = action.payload
+        if (vertexIndex < 0 || vertexIndex >= vertexCount) {
+          return entry
+        }
+        const nextVertices = [...entry.footprint.vertices]
+        nextVertices[vertexIndex] = point
+        return {
+          ...entry,
+          footprint: {
+            ...entry.footprint,
+            vertices: nextVertices,
+          },
+        }
+      })
+    case 'MOVE_EDGE':
+      return applyToActiveFootprint(state, (entry) => {
+        const vertexCount = entry.footprint.vertices.length
+        const { edgeIndex, delta } = action.payload
+        if (edgeIndex < 0 || edgeIndex >= vertexCount) {
+          return entry
+        }
+
+        const start = edgeIndex
+        const end = (edgeIndex + 1) % vertexCount
+        const nextVertices = [...entry.footprint.vertices]
+        const [deltaLon, deltaLat] = delta
+        nextVertices[start] = [nextVertices[start][0] + deltaLon, nextVertices[start][1] + deltaLat]
+        nextVertices[end] = [nextVertices[end][0] + deltaLon, nextVertices[end][1] + deltaLat]
+
+        return {
+          ...entry,
+          footprint: {
+            ...entry.footprint,
+            vertices: nextVertices,
+          },
+        }
+      })
     case 'SET_VERTEX_HEIGHT':
       return applyToActiveFootprint(state, (entry) => ({
         ...entry,
@@ -277,6 +320,21 @@ function reducer(state: ProjectState, action: Action): ProjectState {
           ),
         },
       }))
+    case 'SET_VERTEX_HEIGHTS':
+      return applyToActiveFootprint(state, (entry) => {
+        const vertexCount = entry.footprint.vertices.length
+        let nextVertexHeights = entry.constraints.vertexHeights
+        for (const constraint of action.payload) {
+          nextVertexHeights = setOrReplaceVertexConstraint(nextVertexHeights, constraint)
+        }
+        return {
+          ...entry,
+          constraints: {
+            ...entry.constraints,
+            vertexHeights: sanitizeVertexHeights(nextVertexHeights, vertexCount),
+          },
+        }
+      })
     case 'SET_EDGE_HEIGHT':
       return applyToActiveFootprint(state, (entry) => {
         const vertexCount = entry.footprint.vertices.length
@@ -424,6 +482,14 @@ export function useProjectStore() {
   const activeFootprint = activeEntry?.footprint ?? null
   const activeConstraints = activeEntry?.constraints ?? emptyConstraints
 
+  const wouldExceedConstraintLimit = (targetVertexIndices: number[]): boolean => {
+    const existing = new Set(activeConstraints.vertexHeights.map((constraint) => constraint.vertexIndex))
+    const nextCount =
+      existing.size +
+      targetVertexIndices.reduce((added, vertexIndex) => (existing.has(vertexIndex) ? added : added + 1), 0)
+    return nextCount > 3
+  }
+
   return useMemo(
     () => ({
       state,
@@ -436,10 +502,37 @@ export function useProjectStore() {
       commitFootprint: () => dispatch({ type: 'COMMIT_FOOTPRINT' }),
       setActiveFootprint: (footprintId: string) => dispatch({ type: 'SET_ACTIVE_FOOTPRINT', footprintId }),
       deleteFootprint: (footprintId: string) => dispatch({ type: 'DELETE_FOOTPRINT', footprintId }),
-      setVertexHeight: (vertexIndex: number, heightM: number) =>
-        dispatch({ type: 'SET_VERTEX_HEIGHT', payload: { vertexIndex, heightM } }),
-      setEdgeHeight: (edgeIndex: number, heightM: number) =>
-        dispatch({ type: 'SET_EDGE_HEIGHT', payload: { edgeIndex, heightM } }),
+      moveVertex: (vertexIndex: number, point: [number, number]) =>
+        dispatch({ type: 'MOVE_VERTEX', payload: { vertexIndex, point } }),
+      moveEdge: (edgeIndex: number, delta: [number, number]) => dispatch({ type: 'MOVE_EDGE', payload: { edgeIndex, delta } }),
+      setVertexHeight: (vertexIndex: number, heightM: number) => {
+        if (wouldExceedConstraintLimit([vertexIndex])) {
+          return false
+        }
+        dispatch({ type: 'SET_VERTEX_HEIGHT', payload: { vertexIndex, heightM } })
+        return true
+      },
+      setEdgeHeight: (edgeIndex: number, heightM: number) => {
+        if (!activeFootprint || edgeIndex < 0 || edgeIndex >= activeFootprint.vertices.length) {
+          return false
+        }
+        const end = (edgeIndex + 1) % activeFootprint.vertices.length
+        if (wouldExceedConstraintLimit([edgeIndex, end])) {
+          return false
+        }
+        dispatch({ type: 'SET_EDGE_HEIGHT', payload: { edgeIndex, heightM } })
+        return true
+      },
+      setVertexHeights: (constraints: VertexHeightConstraint[]) => {
+        if (constraints.length === 0) {
+          return false
+        }
+        if (wouldExceedConstraintLimit(constraints.map((constraint) => constraint.vertexIndex))) {
+          return false
+        }
+        dispatch({ type: 'SET_VERTEX_HEIGHTS', payload: constraints })
+        return true
+      },
       clearVertexHeight: (vertexIndex: number) => dispatch({ type: 'CLEAR_VERTEX_HEIGHT', vertexIndex }),
       clearEdgeHeight: (edgeIndex: number) => dispatch({ type: 'CLEAR_EDGE_HEIGHT', edgeIndex }),
     }),

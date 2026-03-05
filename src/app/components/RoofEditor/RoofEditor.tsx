@@ -6,10 +6,11 @@ interface RoofEditorProps {
   vertexConstraints: VertexHeightConstraint[]
   selectedVertexIndex: number | null
   selectedEdgeIndex: number | null
-  onSetVertex: (idx: number, value: number) => void
-  onSetEdge: (idx: number, value: number) => void
+  onSetVertex: (idx: number, value: number) => boolean
+  onSetEdge: (idx: number, value: number) => boolean
   onClearVertex: (idx: number) => void
   onClearEdge: (idx: number) => void
+  onConstraintLimitExceeded: () => void
 }
 
 function indexByVertex(constraints: VertexHeightConstraint[]): Map<number, number> {
@@ -25,6 +26,7 @@ export function RoofEditor({
   onSetEdge,
   onClearVertex,
   onClearEdge,
+  onConstraintLimitExceeded,
 }: RoofEditorProps) {
   const [vertexInputs, setVertexInputs] = useState<Record<number, string>>({})
   const [edgeInputs, setEdgeInputs] = useState<Record<number, string>>({})
@@ -56,6 +58,35 @@ export function RoofEditor({
     input.focus()
     input.select()
   }, [selectedEdgeIndex])
+
+  useEffect(() => {
+    if (selectedVertexIndex === null) {
+      return
+    }
+    const current = vertexIndex.get(selectedVertexIndex)
+    if (current === undefined) {
+      return
+    }
+    setVertexInputs((prev) => ({
+      ...prev,
+      [selectedVertexIndex]: current.toFixed(2),
+    }))
+  }, [selectedVertexIndex, vertexIndex])
+
+  useEffect(() => {
+    if (selectedEdgeIndex === null || !footprint) {
+      return
+    }
+    const startHeight = vertexIndex.get(selectedEdgeIndex)
+    const endHeight = vertexIndex.get((selectedEdgeIndex + 1) % footprint.vertices.length)
+    if (startHeight === undefined || endHeight === undefined || startHeight !== endHeight) {
+      return
+    }
+    setEdgeInputs((prev) => ({
+      ...prev,
+      [selectedEdgeIndex]: startHeight.toFixed(2),
+    }))
+  }, [selectedEdgeIndex, vertexIndex, footprint])
 
   if (!footprint) {
     return (
@@ -107,7 +138,11 @@ export function RoofEditor({
                   if (!Number.isFinite(value)) {
                     return
                   }
-                  onSetVertex(idx, value)
+                  const applied = onSetVertex(idx, value)
+                  if (!applied) {
+                    onConstraintLimitExceeded()
+                    return
+                  }
                   setVertexInputs((prev) => ({ ...prev, [idx]: '' }))
                 }}
               >
@@ -160,7 +195,11 @@ export function RoofEditor({
                   if (!Number.isFinite(value)) {
                     return
                   }
-                  onSetEdge(idx, value)
+                  const applied = onSetEdge(idx, value)
+                  if (!applied) {
+                    onConstraintLimitExceeded()
+                    return
+                  }
                   setEdgeInputs((prev) => ({ ...prev, [idx]: '' }))
                 }}
               >

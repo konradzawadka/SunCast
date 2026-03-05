@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { FootprintPolygon, RoofMeshData, VertexHeightConstraint } from '../../../types/geometry'
 import { RoofMeshLayer } from '../../../rendering/roof-layer/RoofMeshLayer'
@@ -18,6 +18,10 @@ interface MapViewProps {
   onSelectEdge: (edgeIndex: number) => void
   onSelectFootprint: (footprintId: string) => void
   onClearSelection: () => void
+  onMoveVertex: (vertexIndex: number, point: [number, number]) => boolean
+  onMoveEdge: (edgeIndex: number, delta: [number, number]) => boolean
+  onMoveRejected: () => void
+  onAdjustHeight: (stepM: number) => void
   showSolveHint: boolean
   onMapClick: (point: [number, number]) => void
 }
@@ -38,9 +42,19 @@ const ORBIT_PITCH_DEG = 60
 const ORBIT_BEARING_DEG = -20
 const MAX_ORBIT_PITCH_DEG = 85
 const CLICK_HIT_TOLERANCE_PX = 10
+const DRAG_HIT_TOLERANCE_PX = 12
 const FOOTPRINT_HIT_LAYER_ID = 'footprints-hit'
 const EDGE_HIT_LAYER_ID = 'active-footprint-edge-hit'
 const VERTEX_HIT_LAYER_ID = 'active-footprint-vertex-hit'
+const HEIGHT_STEP_M = 0.1
+const HEIGHT_STEP_SHIFT_M = 1.0
+
+interface DragState {
+  type: 'vertex' | 'edge'
+  index: number
+  lastLngLat: [number, number]
+  invalidAttempted: boolean
+}
 
 function toBounds(vertices: Array<[number, number]>): maplibregl.LngLatBoundsLike {
   let minLon = vertices[0][0]
@@ -219,6 +233,10 @@ export function MapView({
   onSelectEdge,
   onSelectFootprint,
   onClearSelection,
+  onMoveVertex,
+  onMoveEdge,
+  onMoveRejected,
+  onAdjustHeight,
   showSolveHint,
   onMapClick,
 }: MapViewProps) {
@@ -231,6 +249,10 @@ export function MapView({
   const onSelectEdgeRef = useRef(onSelectEdge)
   const onSelectFootprintRef = useRef(onSelectFootprint)
   const onClearSelectionRef = useRef(onClearSelection)
+  const onMoveVertexRef = useRef(onMoveVertex)
+  const onMoveEdgeRef = useRef(onMoveEdge)
+  const onMoveRejectedRef = useRef(onMoveRejected)
+  const onAdjustHeightRef = useRef(onAdjustHeight)
   const footprintsRef = useRef(footprints)
   const activeFootprintRef = useRef(activeFootprint)
   const draftRef = useRef(drawDraft)
@@ -238,6 +260,9 @@ export function MapView({
   const selectedVertexRef = useRef(selectedVertexIndex)
   const selectedEdgeRef = useRef(selectedEdgeIndex)
   const vertexConstraintsRef = useRef(vertexConstraints)
+  const orbitEnabledRef = useRef(orbitEnabled)
+  const dragStateRef = useRef<DragState | null>(null)
+  const [gizmoScreenPos, setGizmoScreenPos] = useState<{ left: number; top: number } | null>(null)
 
   useEffect(() => {
     drawingRef.current = isDrawing
@@ -262,6 +287,22 @@ export function MapView({
   useEffect(() => {
     onClearSelectionRef.current = onClearSelection
   }, [onClearSelection])
+
+  useEffect(() => {
+    onMoveVertexRef.current = onMoveVertex
+  }, [onMoveVertex])
+
+  useEffect(() => {
+    onMoveEdgeRef.current = onMoveEdge
+  }, [onMoveEdge])
+
+  useEffect(() => {
+    onMoveRejectedRef.current = onMoveRejected
+  }, [onMoveRejected])
+
+  useEffect(() => {
+    onAdjustHeightRef.current = onAdjustHeight
+  }, [onAdjustHeight])
 
   useEffect(() => {
     footprintsRef.current = footprints
@@ -290,6 +331,25 @@ export function MapView({
   useEffect(() => {
     vertexConstraintsRef.current = vertexConstraints
   }, [vertexConstraints])
+
+  useEffect(() => {
+    orbitEnabledRef.current = orbitEnabled
+  }, [orbitEnabled])
+
+  const gizmoAnchor = useMemo(() => {
+    if (!activeFootprint || activeFootprint.vertices.length < 3 || !orbitEnabled) {
+      return null
+    }
+    if (selectedVertexIndex !== null && selectedVertexIndex >= 0 && selectedVertexIndex < activeFootprint.vertices.length) {
+      return activeFootprint.vertices[selectedVertexIndex]
+    }
+    if (selectedEdgeIndex !== null && selectedEdgeIndex >= 0 && selectedEdgeIndex < activeFootprint.vertices.length) {
+      const start = activeFootprint.vertices[selectedEdgeIndex]
+      const end = activeFootprint.vertices[(selectedEdgeIndex + 1) % activeFootprint.vertices.length]
+      return [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2] as [number, number]
+    }
+    return null
+  }, [activeFootprint, orbitEnabled, selectedEdgeIndex, selectedVertexIndex])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -530,6 +590,120 @@ export function MapView({
       onClearSelectionRef.current()
     })
 
+    map.on('mousedown', (event) => {
+      if (drawingRef.current || orbitEnabledRef.current) {
+        return
+      }
+
+      const hitBounds: [maplibregl.PointLike, maplibregl.PointLike] = [
+        [event.point.x - DRAG_HIT_TOLERANCE_PX, event.point.y - DRAG_HIT_TOLERANCE_PX],
+        [event.point.x + DRAG_HIT_TOLERANCE_PX, event.point.y + DRAG_HIT_TOLERANCE_PX],
+      ]
+      const hits = map.queryRenderedFeatures(hitBounds, {
+        layers: [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID],
+      })
+      const vertexHit = hits.find((feature) => feature.layer.id === VERTEX_HIT_LAYER_ID)
+      if (vertexHit?.properties && vertexHit.properties.vertexIndex !== undefined) {
+        const rawVertexIndex = vertexHit.properties.vertexIndex
+        const vertexIndex = typeof rawVertexIndex === 'number' ? rawVertexIndex : Number(rawVertexIndex)
+        if (!Number.isInteger(vertexIndex)) {
+          return
+        }
+
+        dragStateRef.current = {
+          type: 'vertex',
+          index: vertexIndex,
+          lastLngLat: [event.lngLat.lng, event.lngLat.lat],
+          invalidAttempted: false,
+        }
+        map.dragPan.disable()
+        map.getCanvas().style.cursor = 'grabbing'
+      }
+
+      if (dragStateRef.current) {
+        return
+      }
+
+      const edgeHit = hits.find((feature) => feature.layer.id === EDGE_HIT_LAYER_ID)
+      if (!edgeHit?.properties || edgeHit.properties.edgeIndex === undefined) {
+        return
+      }
+      const rawEdgeIndex = edgeHit.properties.edgeIndex
+      const edgeIndex = typeof rawEdgeIndex === 'number' ? rawEdgeIndex : Number(rawEdgeIndex)
+      if (!Number.isInteger(edgeIndex)) {
+        return
+      }
+
+      dragStateRef.current = {
+        type: 'edge',
+        index: edgeIndex,
+        lastLngLat: [event.lngLat.lng, event.lngLat.lat],
+        invalidAttempted: false,
+      }
+      map.dragPan.disable()
+      map.getCanvas().style.cursor = 'grabbing'
+    })
+
+    map.on('mousemove', (event) => {
+      if (!drawingRef.current && !orbitEnabledRef.current && !dragStateRef.current) {
+        const hitBounds: [maplibregl.PointLike, maplibregl.PointLike] = [
+          [event.point.x - DRAG_HIT_TOLERANCE_PX, event.point.y - DRAG_HIT_TOLERANCE_PX],
+          [event.point.x + DRAG_HIT_TOLERANCE_PX, event.point.y + DRAG_HIT_TOLERANCE_PX],
+        ]
+        const hits = map.queryRenderedFeatures(hitBounds, {
+          layers: [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID],
+        })
+        const hasInteractiveHit = hits.some(
+          (feature) => feature.layer.id === VERTEX_HIT_LAYER_ID || feature.layer.id === EDGE_HIT_LAYER_ID,
+        )
+        map.getCanvas().style.cursor = hasInteractiveHit ? 'grab' : ''
+      }
+
+      const dragState = dragStateRef.current
+      if (!dragState || drawingRef.current || orbitEnabledRef.current) {
+        return
+      }
+
+      if (dragState.type === 'vertex') {
+        const applied = onMoveVertexRef.current(dragState.index, [event.lngLat.lng, event.lngLat.lat])
+        if (!applied) {
+          dragState.invalidAttempted = true
+        } else {
+          dragState.lastLngLat = [event.lngLat.lng, event.lngLat.lat]
+        }
+        return
+      }
+
+      const deltaLng = event.lngLat.lng - dragState.lastLngLat[0]
+      const deltaLat = event.lngLat.lat - dragState.lastLngLat[1]
+      if (deltaLng === 0 && deltaLat === 0) {
+        return
+      }
+
+      const applied = onMoveEdgeRef.current(dragState.index, [deltaLng, deltaLat])
+      if (!applied) {
+        dragState.invalidAttempted = true
+        return
+      }
+      dragState.lastLngLat = [event.lngLat.lng, event.lngLat.lat]
+    })
+
+    const finishDrag = () => {
+      const dragState = dragStateRef.current
+      if (!dragState) {
+        return
+      }
+      dragStateRef.current = null
+      map.dragPan.enable()
+      map.getCanvas().style.cursor = ''
+      if (dragState.invalidAttempted) {
+        onMoveRejectedRef.current()
+      }
+    }
+
+    map.on('mouseup', finishDrag)
+    map.on('mouseout', finishDrag)
+
     mapRef.current = map
 
     return () => {
@@ -632,6 +806,33 @@ export function MapView({
     })
   }, [activeFootprint, footprints, orbitEnabled])
 
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !gizmoAnchor || !orbitEnabled) {
+      setGizmoScreenPos(null)
+      return
+    }
+
+    const updateGizmoPosition = () => {
+      const projected = map.project({ lng: gizmoAnchor[0], lat: gizmoAnchor[1] })
+      setGizmoScreenPos({ left: projected.x, top: projected.y })
+    }
+
+    updateGizmoPosition()
+    map.on('move', updateGizmoPosition)
+    map.on('rotate', updateGizmoPosition)
+    map.on('pitch', updateGizmoPosition)
+    map.on('zoom', updateGizmoPosition)
+    map.on('resize', updateGizmoPosition)
+    return () => {
+      map.off('move', updateGizmoPosition)
+      map.off('rotate', updateGizmoPosition)
+      map.off('pitch', updateGizmoPosition)
+      map.off('zoom', updateGizmoPosition)
+      map.off('resize', updateGizmoPosition)
+    }
+  }, [gizmoAnchor, orbitEnabled])
+
   return (
     <div className="map-root-wrap">
       <div ref={containerRef} className="map-root" />
@@ -639,6 +840,28 @@ export function MapView({
         {orbitEnabled ? 'Exit orbit' : 'Orbit'}
       </button>
       {!isDrawing && activeFootprint && <div className="map-selection-hint">Click a vertex or edge to edit its height</div>}
+      {orbitEnabled && gizmoScreenPos && (
+        <div className="height-gizmo" style={{ left: `${gizmoScreenPos.left}px`, top: `${gizmoScreenPos.top}px` }}>
+          <button
+            type="button"
+            className="height-gizmo-button"
+            onClick={(event) =>
+              onAdjustHeightRef.current(event.shiftKey ? HEIGHT_STEP_SHIFT_M : HEIGHT_STEP_M)
+            }
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            className="height-gizmo-button"
+            onClick={(event) =>
+              onAdjustHeightRef.current(event.shiftKey ? -HEIGHT_STEP_SHIFT_M : -HEIGHT_STEP_M)
+            }
+          >
+            ▼
+          </button>
+        </div>
+      )}
       {orbitEnabled && showSolveHint && activeFootprint && <div className="map-hint">Add heights to solve plane</div>}
     </div>
   )
