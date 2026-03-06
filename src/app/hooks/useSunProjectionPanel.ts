@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { computeSunProjection } from '../../geometry/sun/sunProjection'
 import { parseIsoDateTimeWithTimezone } from '../../geometry/sun/sunPosition'
 import type { ProjectSunProjectionSettings, RoofPlane } from '../../types/geometry'
@@ -33,6 +33,7 @@ export function useSunProjectionPanel({
   setSunProjectionDatetimeIso,
   setSunProjectionDailyDateIso,
 }: UseSunProjectionPanelParams) {
+  const hasAppliedDefaultDatetimeRef = useRef(false)
   const sunDatetimeRaw = sunProjection.datetimeIso ?? ''
   const sunDailyDateRaw = sunProjection.dailyDateIso ?? ''
   const sunDailyTimeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', [])
@@ -40,6 +41,21 @@ export function useSunProjectionPanel({
   const sunDatetimeError =
     sunDatetimeRaw.trim() === '' || sunDatetimeParsed ? null : 'Use ISO datetime with timezone, e.g. 2026-03-05T14:30:00+01:00'
   const hasValidSunDatetime = sunDatetimeParsed !== null
+
+  useEffect(() => {
+    if (hasAppliedDefaultDatetimeRef.current) {
+      return
+    }
+    hasAppliedDefaultDatetimeRef.current = true
+
+    if (sunProjection.datetimeIso) {
+      return
+    }
+
+    const nowIso = new Date().toISOString()
+    setSunProjectionDatetimeIso(nowIso)
+    setSunProjectionDailyDateIso(extractDateIso(nowIso))
+  }, [setSunProjectionDailyDateIso, setSunProjectionDatetimeIso, sunProjection.datetimeIso])
 
   const activeFootprintCentroid = useMemo(
     () => (activeVertices && activeVertices.length > 0 ? computeFootprintCentroid(activeVertices) : null),
@@ -86,4 +102,3 @@ export function useSunProjectionPanel({
     onSunDatetimeInputChange,
   }
 }
-

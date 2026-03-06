@@ -175,15 +175,15 @@ button:disabled {
 .sun-overlay-column {
   position: absolute;
   top: 14px;
-  right: 14px;
+  right: 40px;
   z-index: 14;
   display: flex;
   flex-direction: column;
-  height: 90%;
-  width: min(360px, calc(100% - 28px));
+  height: 95%;
+  width: min(360px, calc(100% - 44px));
   border: 1px solid #324248;
   border-radius: 10px;
-  background: rgba(17, 21, 23, 0.95);
+  background: rgba(17, 21, 23, 0.98);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   overflow: hidden;
 }
@@ -198,13 +198,16 @@ button:disabled {
   border-bottom: 1px solid #324248;
   border-radius: 0;
   text-align: left;
-  background: rgba(25, 33, 36, 0.95);
+  background: rgba(25, 33, 36, 0.98);
 }
 
 .sun-overlay-content {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
 }
 
@@ -369,6 +372,69 @@ button:disabled {
   padding: 0;
 }
 
+.tutorial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1199;
+  background: rgba(5, 8, 10, 0.34);
+  pointer-events: none;
+}
+
+.tutorial-spotlight {
+  position: fixed;
+  z-index: 1200;
+  border: 2px solid rgba(138, 216, 255, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(8, 14, 16, 0.5), 0 0 18px rgba(102, 220, 255, 0.22);
+  pointer-events: none;
+  animation: tutorial-pulse 2s ease-in-out infinite;
+}
+
+.tutorial-card {
+  position: fixed;
+  z-index: 1201;
+  width: min(330px, calc(100vw - 24px));
+  border: 1px solid #4d626c;
+  border-radius: 12px;
+  background: rgba(18, 26, 29, 0.96);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  padding: 12px;
+}
+
+.tutorial-card-light {
+  background: rgba(18, 26, 29, 0.9);
+}
+
+.tutorial-step-index {
+  margin: 0 0 6px;
+  color: #9db5bf;
+  font-size: 0.84rem;
+}
+
+.tutorial-card h3 {
+  margin: 0;
+}
+
+.tutorial-card p {
+  margin: 8px 0 0;
+}
+
+.tutorial-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@keyframes tutorial-pulse {
+  0% {
+    box-shadow: 0 0 0 1px rgba(8, 14, 16, 0.5), 0 0 12px rgba(102, 220, 255, 0.16);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgba(8, 14, 16, 0.5), 0 0 24px rgba(102, 220, 255, 0.36);
+  }
+}
+
 @media (max-width: 1020px) {
   .editor-layout {
     grid-template-columns: 1fr;
@@ -382,8 +448,8 @@ button:disabled {
 
   .sun-overlay-column {
     top: 8px;
-    right: 8px;
-    width: min(340px, calc(100% - 16px));
+    right: 30px;
+    width: min(340px, calc(100% - 38px));
   }
 
   .sun-overlay-column-collapsed {

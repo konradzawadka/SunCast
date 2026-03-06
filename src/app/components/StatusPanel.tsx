@@ -48,7 +48,7 @@ export function StatusPanel({
                 {warning.code}: {warning.message}
               </p>
             ))}
-            <p>Pitch: {pitchDeg.toFixed(2)} deg</p>
+            <p data-testid="status-pitch-value">Pitch: {pitchDeg.toFixed(2)} deg</p>
             <p>Downslope azimuth: {azimuthDeg.toFixed(1)} deg</p>
             <p>Roof area: {roofAreaM2.toFixed(2)} m2</p>
             <p>

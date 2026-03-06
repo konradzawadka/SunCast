@@ -36,6 +36,7 @@ interface MapViewProps {
   onMapClick: (point: [number, number]) => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
+  onInitialized?: () => void
 }
 
 const SATELLITE_TILES =
@@ -272,6 +273,7 @@ export function MapView({
   onMapClick,
   onBearingChange,
   onPitchChange,
+  onInitialized,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -289,6 +291,7 @@ export function MapView({
   const onAdjustHeightRef = useRef(onAdjustHeight)
   const onBearingChangeRef = useRef(onBearingChange)
   const onPitchChangeRef = useRef(onPitchChange)
+  const onInitializedRef = useRef(onInitialized)
   const footprintsRef = useRef(footprints)
   const activeFootprintRef = useRef(activeFootprint)
   const selectedFootprintIdsRef = useRef(selectedFootprintIds)
@@ -369,6 +372,10 @@ export function MapView({
   useEffect(() => {
     onPitchChangeRef.current = onPitchChange
   }, [onPitchChange])
+
+  useEffect(() => {
+    onInitializedRef.current = onInitialized
+  }, [onInitialized])
 
   useEffect(() => {
     footprintsRef.current = footprints
@@ -635,6 +642,7 @@ export function MapView({
       debugOverlayLayer.setMeshes(roofMeshesRef.current)
       debugOverlayLayer.setZExaggeration(zExaggeration)
       debugOverlayLayer.setVisible(debugEnabledRef.current)
+      onInitializedRef.current?.()
     })
 
     map.on('click', (event) => {

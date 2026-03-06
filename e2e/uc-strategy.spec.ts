@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures/coverage'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 interface StoredProject {
   footprints: Record<
@@ -29,6 +29,40 @@ async function clickMapRatios(page: Page, points: Array<[number, number]>) {
   for (const [xRatio, yRatio] of points) {
     await page.mouse.click(bounds.x + bounds.width * xRatio, bounds.y + bounds.height * yRatio)
   }
+}
+
+async function expectTutorialSpotlightAround(page: Page, target: Locator) {
+  await expect(target).toBeVisible()
+  await expect(page.getByTestId('tutorial-spotlight').first()).toBeVisible()
+
+  const targetBox = await target.boundingBox()
+  if (!targetBox) {
+    throw new Error('Target bounding box is unavailable for tutorial spotlight check')
+  }
+
+  const spotlightBoxes = await page.locator('[data-testid="tutorial-spotlight"]').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const rect = node.getBoundingClientRect()
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }
+    }),
+  )
+
+  const centerX = targetBox.x + targetBox.width / 2
+  const centerY = targetBox.y + targetBox.height / 2
+  const matchesTarget = spotlightBoxes.some(
+    (box) =>
+      centerX >= box.x &&
+      centerX <= box.x + box.width &&
+      centerY >= box.y &&
+      centerY <= box.y + box.height,
+  )
+
+  expect(matchesTarget).toBeTruthy()
 }
 
 async function selectVertexViaDebug(page: Page, vertexIndex: number) {
@@ -294,4 +328,53 @@ test('UC6: daily POA chart appears and changes with selected date', async ({ pag
   const decemberPeak = await page.getByTestId('sun-daily-peak').innerText()
 
   expect(decemberPeak).not.toBe(junePeak)
+})
+
+test('UC12: tutorial highlights workflow controls and stores completion', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem('suncast_uc12_tutorial_state')
+  })
+  await page.goto('/')
+
+  await expect(page.getByRole('dialog', { name: /Tutorial step 1 of 5/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('map-canvas'))
+
+  await page.getByTestId('draw-footprint-button').click()
+  await clickMapRatios(page, [
+    [0.24, 0.22],
+    [0.56, 0.23],
+    [0.58, 0.56],
+  ])
+
+  await expect(page.getByRole('dialog', { name: /Tutorial step 2 of 5/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('draw-finish-button'))
+  await page.getByTestId('draw-finish-button').click()
+
+  await expect(page.getByRole('dialog', { name: /Tutorial step 3 of 5/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('active-footprint-kwp-input'))
+  await page.getByTestId('active-footprint-kwp-input').fill('5.1')
+
+  await expect(page.getByRole('dialog', { name: /Tutorial step 4 of 5/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('vertex-heights-panel'))
+
+  await setVertexHeight(page, 0, 2)
+  await setVertexHeight(page, 1, 4)
+  await setVertexHeight(page, 2, 6)
+
+  await expect(page.getByRole('dialog', { name: /Tutorial step 5 of 5/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('status-pitch-value'))
+  await expectTutorialSpotlightAround(page, page.getByTestId('orbit-toggle-button'))
+
+  await page.getByTestId('orbit-toggle-button').click()
+  await expect(page.getByRole('dialog', { name: /Tutorial step/i })).toHaveCount(0)
+
+  const tutorialState = await page.evaluate(() => {
+    const raw = window.localStorage.getItem('suncast_uc12_tutorial_state')
+    return raw ? (JSON.parse(raw) as { completedSteps?: number; tutorialEnabled?: boolean }) : null
+  })
+  expect(tutorialState?.completedSteps).toBe(5)
+  expect(tutorialState?.tutorialEnabled).toBeFalsy()
+
+  await page.reload()
+  await expect(page.getByRole('dialog', { name: /Tutorial step/i })).toHaveCount(0)
 })

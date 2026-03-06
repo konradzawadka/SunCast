@@ -7,10 +7,12 @@ import { StatusPanel } from '../components/StatusPanel'
 import { SunProjectionStatus } from '../components/SunProjectionStatus'
 import { SunDailyChartPanel } from '../components/SunDailyChartPanel'
 import { SunOverlayColumn } from '../components/SunOverlayColumn'
+import { TutorialOverlay } from '../components/Tutorial/TutorialOverlay'
 import { useConstraintEditor } from '../hooks/useConstraintEditor'
 import { useRoofDebugSimulation } from '../hooks/useRoofDebugSimulation'
 import { useSolvedRoofEntries } from '../hooks/useSolvedRoofEntries'
 import { useSunProjectionPanel } from '../hooks/useSunProjectionPanel'
+import { useTutorial } from '../hooks/useTutorial'
 import { useProjectStore } from '../../state/project-store'
 import { validateFootprint } from '../../geometry/solver/validation'
 import type { SelectedRoofSunInput } from '../components/SunOverlayColumn'
@@ -93,8 +95,38 @@ function parseImportedFootprintsConfig(raw: string): ImportedFootprintConfigEntr
   return entries
 }
 
+const TUTORIAL_STEPS = [
+  {
+    title: 'Draw your roof polygon',
+    description: 'Draw your roof by clicking on the map to place polygon corners.',
+    targetSelectors: ['[data-testid="draw-footprint-button"]'],
+  },
+  {
+    title: 'Finish polygon',
+    description: 'Click Finish to complete the roof polygon.',
+    targetSelectors: ['[data-testid="draw-finish-button"]'],
+  },
+  {
+    title: 'Set kWp for the roof',
+    description: 'Enter the installed PV capacity for this roof (kWp).',
+    targetSelectors: ['[data-testid="active-footprint-kwp-input"]'],
+  },
+  {
+    title: 'Set vertex heights',
+    description: 'Set the height of roof corners to define the roof slope.',
+    targetSelectors: ['[data-testid="vertex-heights-panel"]'],
+  },
+  {
+    title: 'Confirm roof pitch',
+    description:
+      'Check the calculated roof pitch and view the roof in perspective to verify it looks correct.',
+    targetSelectors: ['[data-testid="status-pitch-value"]', '[data-testid="orbit-toggle-button"]'],
+  },
+] as const
+
 export function EditorScreen() {
   const [orbitEnabled, setOrbitEnabled] = useState(false)
+  const [mapInitialized, setMapInitialized] = useState(false)
   const [mapBearingDeg, setMapBearingDeg] = useState(0)
   const [mapPitchDeg, setMapPitchDeg] = useState(0)
   const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null)
@@ -102,6 +134,7 @@ export function EditorScreen() {
   const [showImportConfig, setShowImportConfig] = useState(false)
   const [importConfigJson, setImportConfigJson] = useState('')
   const [importConfigError, setImportConfigError] = useState<string | null>(null)
+  const [tutorialKwpEdited, setTutorialKwpEdited] = useState(false)
 
   const {
     state,
@@ -136,6 +169,10 @@ export function EditorScreen() {
   const footprintEntries = useMemo(() => Object.values(state.footprints), [state.footprints])
   const footprints = useMemo(() => footprintEntries.map((entry) => entry.footprint), [footprintEntries])
   const activeFootprintErrors = validateFootprint(activeFootprint)
+
+  useEffect(() => {
+    setTutorialKwpEdited(false)
+  }, [state.activeFootprintId])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -281,6 +318,17 @@ export function EditorScreen() {
     mapPitchDeg,
   })
 
+  const tutorial = useTutorial({
+    draftVertexCount: state.drawDraft.length,
+    hasFinishedPolygon: Boolean(activeFootprint),
+    kwp: activeFootprint?.kwp ?? null,
+    hasEditedKwp: tutorialKwpEdited,
+    constrainedVertexCount: activeConstraints.vertexHeights.length,
+    orbitEnabled,
+  })
+
+  const activeTutorialStep = tutorial.currentStepIndex !== null ? TUTORIAL_STEPS[tutorial.currentStepIndex] : null
+
   const clearSelectionState = useCallback(() => {
     setSelectedVertexIndex(null)
     setSelectedEdgeIndex(null)
@@ -377,6 +425,7 @@ export function EditorScreen() {
           }}
           onSetActiveFootprintKwp={(kwp) => {
             setActiveFootprintKwp(kwp)
+            setTutorialKwpEdited(true)
           }}
           onDeleteActiveFootprint={() => {
             if (!state.activeFootprintId) {
@@ -457,6 +506,7 @@ export function EditorScreen() {
           onMapClick={addDraftPoint}
           onBearingChange={setMapBearingDeg}
           onPitchChange={setMapPitchDeg}
+          onInitialized={() => setMapInitialized(true)}
         />
         <SunOverlayColumn
           datetimeIso={sunDatetimeRaw}
@@ -487,6 +537,15 @@ export function EditorScreen() {
             </section>
           )}
         </SunOverlayColumn>
+        {mapInitialized && tutorial.isVisible && activeTutorialStep && (
+          <TutorialOverlay
+            step={activeTutorialStep}
+            stepIndex={tutorial.currentStepIndex ?? 0}
+            stepCount={tutorial.stepCount}
+            onSkip={tutorial.skipTutorial}
+            onComplete={tutorial.completeTutorial}
+          />
+        )}
       </main>
     </div>
   )

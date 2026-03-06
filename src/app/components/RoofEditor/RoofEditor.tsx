@@ -30,7 +30,7 @@ export function RoofEditor({
 }: RoofEditorProps) {
   const [vertexInputs, setVertexInputs] = useState<Record<number, string>>({})
   const [edgeInputs, setEdgeInputs] = useState<Record<number, string>>({})
-  const [edgeSectionOpen, setEdgeSectionOpen] = useState(true)
+  const [edgeSectionOpen, setEdgeSectionOpen] = useState(false)
   const vertexInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const edgeInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
@@ -117,8 +117,9 @@ export function RoofEditor({
         {activeConstraints.length > 0 ? activeConstraints.join(', ') : 'none'}
       </p>
 
-      <h4>Vertex Heights</h4>
-      <div className="constraint-grid">
+      <div data-testid="vertex-heights-panel">
+        <h4>Vertex Heights</h4>
+        <div className="constraint-grid">
         {footprint.vertices.map((_, idx) => {
           const current = vertexIndex.get(idx)
           const textValue = vertexInputs[idx] ?? (selectedVertexIndex === idx && current !== undefined ? current.toFixed(2) : '')
@@ -170,7 +171,8 @@ export function RoofEditor({
               </button>
             </div>
           )
-        })}
+          })}
+        </div>
       </div>
 
       <details open={edgeSectionOpen} onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}>
