@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DrawTools } from '../components/DrawTools/DrawTools'
 import { MapView } from '../components/MapView/MapView'
 import { RoofEditor } from '../components/RoofEditor/RoofEditor'
@@ -13,6 +13,85 @@ import { useSolvedRoofEntries } from '../hooks/useSolvedRoofEntries'
 import { useSunProjectionPanel } from '../hooks/useSunProjectionPanel'
 import { useProjectStore } from '../../state/project-store'
 import { validateFootprint } from '../../geometry/solver/validation'
+import type { SelectedRoofSunInput } from '../components/SunOverlayColumn'
+
+function computeFootprintCentroid(vertices: Array<[number, number]>): [number, number] | null {
+  if (vertices.length === 0) {
+    return null
+  }
+  let lonSum = 0
+  let latSum = 0
+  for (const [lon, lat] of vertices) {
+    lonSum += lon
+    latSum += lat
+  }
+  return [lonSum / vertices.length, latSum / vertices.length]
+}
+
+type ImportedFootprintConfigEntry = {
+  footprintId: string
+  polygon: Array<[number, number]>
+  vertexHeights: Array<{ vertexIndex: number; heightM: number }>
+}
+
+function parseImportedFootprintsConfig(raw: string): ImportedFootprintConfigEntry[] {
+  const parsed = JSON.parse(raw) as unknown
+  if (!Array.isArray(parsed)) {
+    throw new Error('Configuration must be an array.')
+  }
+
+  const entries: ImportedFootprintConfigEntry[] = []
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') {
+      continue
+    }
+
+    const footprintId = typeof item.footprintId === 'string' ? item.footprintId.trim() : ''
+    const polygonRaw = Array.isArray(item.polygon) ? item.polygon : []
+    const vertexHeightsRaw = Array.isArray(item.vertexHeights) ? item.vertexHeights : []
+    if (!footprintId || polygonRaw.length < 3) {
+      continue
+    }
+
+    const polygon: Array<[number, number]> = []
+    for (const coordinate of polygonRaw) {
+      if (!Array.isArray(coordinate) || coordinate.length !== 2) {
+        continue
+      }
+      const lon = Number(coordinate[0])
+      const lat = Number(coordinate[1])
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+        continue
+      }
+      polygon.push([lon, lat])
+    }
+
+    const vertexHeights: Array<{ vertexIndex: number; heightM: number }> = []
+    for (const constraint of vertexHeightsRaw) {
+      if (!constraint || typeof constraint !== 'object') {
+        continue
+      }
+      const vertexIndex = Number(constraint.vertexIndex)
+      const heightM = Number(constraint.heightM)
+      if (!Number.isInteger(vertexIndex) || !Number.isFinite(heightM)) {
+        continue
+      }
+      vertexHeights.push({ vertexIndex, heightM })
+    }
+
+    if (polygon.length < 3) {
+      continue
+    }
+
+    entries.push({ footprintId, polygon, vertexHeights })
+  }
+
+  if (entries.length === 0) {
+    throw new Error('No valid footprint entries found in configuration.')
+  }
+
+  return entries
+}
 
 export function EditorScreen() {
   const [orbitEnabled, setOrbitEnabled] = useState(false)
@@ -20,6 +99,9 @@ export function EditorScreen() {
   const [mapPitchDeg, setMapPitchDeg] = useState(0)
   const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null)
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null)
+  const [showImportConfig, setShowImportConfig] = useState(false)
+  const [importConfigJson, setImportConfigJson] = useState('')
+  const [importConfigError, setImportConfigError] = useState<string | null>(null)
 
   const {
     state,
@@ -30,7 +112,6 @@ export function EditorScreen() {
     addDraftPoint,
     undoDraftPoint,
     commitFootprint,
-    setActiveFootprint,
     deleteFootprint,
     moveVertex,
     moveEdge,
@@ -43,6 +124,12 @@ export function EditorScreen() {
     setSunProjectionEnabled,
     setSunProjectionDatetimeIso,
     setSunProjectionDailyDateIso,
+    selectedFootprintIds,
+    selectOnlyFootprint,
+    toggleFootprintSelection,
+    selectAllFootprints,
+    clearFootprintSelection,
+    upsertImportedFootprints,
   } = useProjectStore()
 
   const footprintEntries = useMemo(() => Object.values(state.footprints), [state.footprints])
@@ -72,6 +159,7 @@ export function EditorScreen() {
         selectVertex: (vertexIndex: number) => void
         selectEdge: (edgeIndex: number) => void
         clearSelection: () => void
+        importPolygonsAndHeights: (rawConfig: string) => void
       }
     }
 
@@ -95,10 +183,39 @@ export function EditorScreen() {
         setSelectedVertexIndex(null)
         setSelectedEdgeIndex(null)
       },
+      importPolygonsAndHeights: (rawConfig: string) => {
+        const entries = parseImportedFootprintsConfig(rawConfig)
+        upsertImportedFootprints(entries)
+      },
     }
-  }, [footprintEntries])
+  }, [footprintEntries, upsertImportedFootprints])
 
   const solved = useSolvedRoofEntries(footprintEntries, state.activeFootprintId)
+  const solvedByFootprintId = useMemo(() => new Map(solved.entries.map((entry) => [entry.footprintId, entry])), [solved.entries])
+
+  const selectedRoofInputs = useMemo<SelectedRoofSunInput[]>(() => {
+    const inputs: SelectedRoofSunInput[] = []
+    for (const footprintId of selectedFootprintIds) {
+      const solvedEntry = solvedByFootprintId.get(footprintId)
+      const footprintEntry = state.footprints[footprintId]
+      if (!solvedEntry || !footprintEntry) {
+        continue
+      }
+      const centroid = computeFootprintCentroid(footprintEntry.footprint.vertices)
+      if (!centroid) {
+        continue
+      }
+      inputs.push({
+        footprintId,
+        lonDeg: centroid[0],
+        latDeg: centroid[1],
+        roofPitchDeg: solvedEntry.metrics.pitchDeg,
+        roofAzimuthDeg: solvedEntry.metrics.azimuthDeg,
+        roofPlane: solvedEntry.solution.plane,
+      })
+    }
+    return inputs
+  }, [selectedFootprintIds, solvedByFootprintId, state.footprints])
 
   const {
     interactionError,
@@ -146,7 +263,6 @@ export function EditorScreen() {
     sunDatetimeError,
     hasValidSunDatetime,
     sunProjectionResult,
-    activeFootprintCentroid,
     onSunDatetimeInputChange,
   } = useSunProjectionPanel({
     sunProjection,
@@ -163,17 +279,68 @@ export function EditorScreen() {
     mapPitchDeg,
   })
 
-  const clearSelectionState = () => {
+  const clearSelectionState = useCallback(() => {
     setSelectedVertexIndex(null)
     setSelectedEdgeIndex(null)
     clearInteractionError()
-  }
+  }, [clearInteractionError])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'i') {
+        event.preventDefault()
+        setShowImportConfig((value) => !value)
+        return
+      }
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+      event.preventDefault()
+      selectAllFootprints()
+      clearSelectionState()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [clearSelectionState, selectAllFootprints])
+
+  const onImportConfigSubmit = useCallback(() => {
+    try {
+      const entries = parseImportedFootprintsConfig(importConfigJson)
+      upsertImportedFootprints(entries)
+      clearSelectionState()
+      setImportConfigError(null)
+    } catch (error) {
+      setImportConfigError(error instanceof Error ? error.message : 'Invalid configuration JSON.')
+    }
+  }, [clearSelectionState, importConfigJson, upsertImportedFootprints])
 
   return (
     <div className="editor-layout">
       <aside className="editor-panel">
         <h2>SunCast Editor</h2>
         <p className="subtitle">Geometry-first roof modeling on satellite imagery</p>
+        <section style={{ display: showImportConfig ? 'block' : 'none', marginBottom: '0.8rem' }}>
+          <h3>Hidden Polygon Import</h3>
+          <p className="subtitle">Use Ctrl+Shift+I to toggle. Paste config JSON and inject polygons.</p>
+          <textarea
+            value={importConfigJson}
+            onChange={(event) => {
+              setImportConfigJson(event.target.value)
+              setImportConfigError(null)
+            }}
+            rows={8}
+            style={{ width: '100%', resize: 'vertical' }}
+            placeholder='[{"footprintId":"fp-1","polygon":[[20,52],[20.1,52],[20.1,52.1]],"vertexHeights":[{"vertexIndex":0,"heightM":8}]}]'
+          />
+          {importConfigError ? <p style={{ color: '#b91c1c' }}>{importConfigError}</p> : null}
+          <button type="button" onClick={onImportConfigSubmit}>
+            Inject Polygons
+          </button>
+        </section>
 
         <DrawTools
           isDrawing={state.isDrawing}
@@ -196,8 +363,13 @@ export function EditorScreen() {
         <FootprintPanel
           footprints={footprints}
           activeFootprintId={state.activeFootprintId}
-          onSelectFootprint={(footprintId) => {
-            setActiveFootprint(footprintId)
+          selectedFootprintIds={selectedFootprintIds}
+          onSelectFootprint={(footprintId, multiSelect) => {
+            if (multiSelect) {
+              toggleFootprintSelection(footprintId)
+            } else {
+              selectOnlyFootprint(footprintId)
+            }
             clearSelectionState()
           }}
           onDeleteActiveFootprint={() => {
@@ -239,6 +411,7 @@ export function EditorScreen() {
         <MapView
           footprints={footprints}
           activeFootprint={activeFootprint}
+          selectedFootprintIds={selectedFootprintIds}
           drawDraft={state.drawDraft}
           isDrawing={state.isDrawing}
           orbitEnabled={orbitEnabled}
@@ -257,11 +430,18 @@ export function EditorScreen() {
             setSelectedVertexIndex(null)
             clearInteractionError()
           }}
-          onSelectFootprint={(footprintId) => {
-            setActiveFootprint(footprintId)
+          onSelectFootprint={(footprintId, multiSelect) => {
+            if (multiSelect) {
+              toggleFootprintSelection(footprintId)
+            } else {
+              selectOnlyFootprint(footprintId)
+            }
             clearSelectionState()
           }}
-          onClearSelection={clearSelectionState}
+          onClearSelection={() => {
+            clearSelectionState()
+            clearFootprintSelection()
+          }}
           onMoveVertex={moveVertexIfValid}
           onMoveEdge={moveEdgeIfValid}
           onMoveRejected={setMoveRejectedError}
@@ -275,10 +455,7 @@ export function EditorScreen() {
         <SunOverlayColumn
           datetimeIso={sunDatetimeRaw}
           timeZone={sunDailyTimeZone}
-          latDeg={activeFootprintCentroid ? activeFootprintCentroid[1] : null}
-          lonDeg={activeFootprintCentroid ? activeFootprintCentroid[0] : null}
-          roofPitchDeg={solved.activeSolved?.metrics.pitchDeg ?? null}
-          roofAzimuthDeg={solved.activeSolved?.metrics.azimuthDeg ?? null}
+          selectedRoofs={selectedRoofInputs}
           onDatetimeInputChange={onSunDatetimeInputChange}
           expanded={Boolean(solved.activeSolved) && !state.isDrawing}
         >
@@ -294,9 +471,7 @@ export function EditorScreen() {
               <SunDailyChartPanel
                 dateIso={sunDailyDateRaw}
                 timeZone={sunDailyTimeZone}
-                latDeg={activeFootprintCentroid ? activeFootprintCentroid[1] : null}
-                lonDeg={activeFootprintCentroid ? activeFootprintCentroid[0] : null}
-                plane={solved.activeSolved.solution.plane}
+                selectedRoofs={selectedRoofInputs}
               />
             </>
           ) : (

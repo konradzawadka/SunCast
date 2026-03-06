@@ -8,6 +8,7 @@ import { projectPointsToLocalMeters } from '../../../geometry/projection/localMe
 interface MapViewProps {
   footprints: FootprintPolygon[]
   activeFootprint: FootprintPolygon | null
+  selectedFootprintIds: string[]
   drawDraft: Array<[number, number]>
   isDrawing: boolean
   orbitEnabled: boolean
@@ -18,7 +19,7 @@ interface MapViewProps {
   selectedEdgeIndex: number | null
   onSelectVertex: (vertexIndex: number) => void
   onSelectEdge: (edgeIndex: number) => void
-  onSelectFootprint: (footprintId: string) => void
+  onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
   onClearSelection: () => void
   onMoveVertex: (vertexIndex: number, point: [number, number]) => boolean
   onMoveEdge: (edgeIndex: number, delta: [number, number]) => boolean
@@ -103,6 +104,7 @@ function toBounds(vertices: Array<[number, number]>): maplibregl.LngLatBoundsLik
 function toFootprintFeatures(
   footprints: FootprintPolygon[],
   activeFootprintId: string | null,
+  selectedFootprintIds: Set<string>,
 ): GeoJSON.Feature<GeoJSON.Polygon>[] {
   return footprints
     .filter((footprint) => footprint.vertices.length >= 3)
@@ -111,6 +113,7 @@ function toFootprintFeatures(
       properties: {
         footprintId: footprint.id,
         active: activeFootprintId === footprint.id ? 1 : 0,
+        selected: selectedFootprintIds.has(footprint.id) ? 1 : 0,
       },
       geometry: {
         type: 'Polygon',
@@ -196,6 +199,7 @@ function updateInteractiveSources(
   map: maplibregl.Map,
   footprints: FootprintPolygon[],
   activeFootprint: FootprintPolygon | null,
+  selectedFootprintIds: string[],
   nextVertexConstraints: VertexHeightConstraint[],
   nextSelectedVertex: number | null,
   nextSelectedEdge: number | null,
@@ -213,7 +217,7 @@ function updateInteractiveSources(
 
   footprintsSource.setData({
     type: 'FeatureCollection',
-    features: toFootprintFeatures(footprints, activeFootprint?.id ?? null),
+    features: toFootprintFeatures(footprints, activeFootprint?.id ?? null, new Set(selectedFootprintIds)),
   })
 
   if (!activeFootprint || activeFootprint.vertices.length < 3) {
@@ -246,6 +250,7 @@ function updateInteractiveSources(
 export function MapView({
   footprints,
   activeFootprint,
+  selectedFootprintIds,
   drawDraft,
   isDrawing,
   orbitEnabled,
@@ -286,6 +291,7 @@ export function MapView({
   const onPitchChangeRef = useRef(onPitchChange)
   const footprintsRef = useRef(footprints)
   const activeFootprintRef = useRef(activeFootprint)
+  const selectedFootprintIdsRef = useRef(selectedFootprintIds)
   const draftRef = useRef(drawDraft)
   const roofMeshesRef = useRef(roofMeshes)
   const selectedVertexRef = useRef(selectedVertexIndex)
@@ -371,6 +377,10 @@ export function MapView({
   useEffect(() => {
     activeFootprintRef.current = activeFootprint
   }, [activeFootprint])
+
+  useEffect(() => {
+    selectedFootprintIdsRef.current = selectedFootprintIds
+  }, [selectedFootprintIds])
 
   useEffect(() => {
     draftRef.current = drawDraft
@@ -467,7 +477,7 @@ export function MapView({
             source: 'footprints',
             paint: {
               'fill-color': ['case', ['==', ['get', 'active'], 1], '#e5b422', '#7ca5ff'],
-              'fill-opacity': ['case', ['==', ['get', 'active'], 1], 0.24, 0.12],
+              'fill-opacity': ['case', ['==', ['get', 'selected'], 1], 0.3, 0.12],
             },
           },
           {
@@ -475,8 +485,8 @@ export function MapView({
             type: 'line',
             source: 'footprints',
             paint: {
-              'line-color': ['case', ['==', ['get', 'active'], 1], '#f7cc52', '#93b4ff'],
-              'line-width': ['case', ['==', ['get', 'active'], 1], 2.5, 1.5],
+              'line-color': ['case', ['==', ['get', 'active'], 1], '#f7cc52', ['==', ['get', 'selected'], 1], '#8fe287', '#93b4ff'],
+              'line-width': ['case', ['==', ['get', 'selected'], 1], 2.8, 1.5],
             },
           },
           {
@@ -587,6 +597,7 @@ export function MapView({
         map,
         footprintsRef.current,
         activeFootprintRef.current,
+        selectedFootprintIdsRef.current,
         vertexConstraintsRef.current,
         selectedVertexRef.current,
         selectedEdgeRef.current,
@@ -663,8 +674,7 @@ export function MapView({
       const footprintHit = hits.find((feature) => feature.layer.id === FOOTPRINT_HIT_LAYER_ID)
       const rawFootprintId = footprintHit?.properties?.footprintId
       if (typeof rawFootprintId === 'string' && rawFootprintId) {
-        onSelectFootprintRef.current(rawFootprintId)
-        onClearSelectionRef.current()
+        onSelectFootprintRef.current(rawFootprintId, event.originalEvent.ctrlKey || event.originalEvent.metaKey)
         return
       }
 
@@ -843,8 +853,16 @@ export function MapView({
       return
     }
 
-    updateInteractiveSources(map, footprints, activeFootprint, vertexConstraints, selectedVertexIndex, selectedEdgeIndex)
-  }, [activeFootprint, footprints, selectedEdgeIndex, selectedVertexIndex, vertexConstraints])
+    updateInteractiveSources(
+      map,
+      footprints,
+      activeFootprint,
+      selectedFootprintIds,
+      vertexConstraints,
+      selectedVertexIndex,
+      selectedEdgeIndex,
+    )
+  }, [activeFootprint, footprints, selectedEdgeIndex, selectedFootprintIds, selectedVertexIndex, vertexConstraints])
 
   useEffect(() => {
     const map = mapRef.current

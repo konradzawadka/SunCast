@@ -3,13 +3,15 @@ import type { FootprintPolygon } from '../../types/geometry'
 interface FootprintPanelProps {
   footprints: FootprintPolygon[]
   activeFootprintId: string | null
-  onSelectFootprint: (footprintId: string) => void
+  selectedFootprintIds: string[]
+  onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
   onDeleteActiveFootprint: () => void
 }
 
 export function FootprintPanel({
   footprints,
   activeFootprintId,
+  selectedFootprintIds,
   onSelectFootprint,
   onDeleteActiveFootprint,
 }: FootprintPanelProps) {
@@ -22,12 +24,13 @@ export function FootprintPanel({
         <div className="footprint-list">
           {footprints.map((footprint) => {
             const isActive = footprint.id === activeFootprintId
+            const isSelected = selectedFootprintIds.includes(footprint.id)
             return (
               <button
                 key={footprint.id}
                 type="button"
-                className={`footprint-list-item${isActive ? ' footprint-list-item-active' : ''}`}
-                onClick={() => onSelectFootprint(footprint.id)}
+                className={`footprint-list-item${isSelected ? ' footprint-list-item-selected' : ''}${isActive ? ' footprint-list-item-active' : ''}`}
+                onClick={(event) => onSelectFootprint(footprint.id, event.ctrlKey || event.metaKey)}
               >
                 {footprint.id}
               </button>

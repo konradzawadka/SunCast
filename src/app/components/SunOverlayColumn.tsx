@@ -16,6 +16,8 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { planeSlopeFromPitchAzimuth } from '../../geometry/solver/metrics'
 import { getAnnualAggregatedDayProfile } from '../../geometry/sun/annualEstimation'
+import { formatMinuteOfDay, parseHhmmToMinuteOfDay, sumProfiles } from '../../geometry/sun/profileAggregation'
+import type { RoofPlane } from '../../types/geometry'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 
@@ -27,18 +29,25 @@ interface OpenMeteoForecastResponse {
 }
 
 interface ForecastPoint {
-  timestampIso: string
+  minuteOfDay: number
+  timeLabel: string
   irradianceWm2: number
+}
+
+export interface SelectedRoofSunInput {
+  footprintId: string
+  latDeg: number
+  lonDeg: number
+  roofPitchDeg: number
+  roofAzimuthDeg: number
+  roofPlane: RoofPlane
 }
 
 interface SunOverlayColumnProps {
   children: ReactNode
   datetimeIso: string
   timeZone: string
-  latDeg: number | null
-  lonDeg: number | null
-  roofPitchDeg: number | null
-  roofAzimuthDeg: number | null
+  selectedRoofs: SelectedRoofSunInput[]
   capacityKwp?: number
   onDatetimeInputChange: (datetimeIsoRaw: string) => void
   expanded?: boolean
@@ -88,10 +97,7 @@ export function SunOverlayColumn({
   children,
   datetimeIso,
   timeZone,
-  latDeg,
-  lonDeg,
-  roofPitchDeg,
-  roofAzimuthDeg,
+  selectedRoofs,
   capacityKwp = 4.3,
   onDatetimeInputChange,
   expanded,
@@ -102,12 +108,10 @@ export function SunOverlayColumn({
   const [forecastPoints, setForecastPoints] = useState<ForecastPoint[]>([])
   const selectedDateIso = useMemo(() => extractDateIso(datetimeIso), [datetimeIso])
   const selectedYear = useMemo(() => extractYear(datetimeIso) ?? new Date().getFullYear(), [datetimeIso])
+  const selectedCount = selectedRoofs.length
   const hasForecastInputs =
     selectedDateIso !== null &&
-    latDeg !== null &&
-    lonDeg !== null &&
-    roofPitchDeg !== null &&
-    roofAzimuthDeg !== null &&
+    selectedCount > 0 &&
     Number.isFinite(capacityKwp)
 
   useEffect(() => {
@@ -118,7 +122,7 @@ export function SunOverlayColumn({
   }, [expanded])
 
   useEffect(() => {
-    if (!hasForecastInputs || !selectedDateIso || latDeg === null || lonDeg === null || roofPitchDeg === null || roofAzimuthDeg === null) {
+    if (!hasForecastInputs || !selectedDateIso || selectedRoofs.length === 0) {
       setForecastPoints([])
       setForecastError(null)
       setIsForecastLoading(false)
@@ -126,22 +130,23 @@ export function SunOverlayColumn({
     }
 
     const abortController = new AbortController()
-    const url = new URL('https://api.open-meteo.com/v1/forecast')
-    url.searchParams.set('latitude', latDeg.toFixed(6))
-    url.searchParams.set('longitude', lonDeg.toFixed(6))
-    url.searchParams.set('hourly', 'global_tilted_irradiance')
-    url.searchParams.set('tilt', toOpenMeteoTiltDeg(roofPitchDeg).toFixed(2))
-    url.searchParams.set('azimuth', toOpenMeteoAzimuthDeg(roofAzimuthDeg).toFixed(2))
-    url.searchParams.set('capacity', capacityKwp.toFixed(2))
-    url.searchParams.set('timezone', timeZone)
-    url.searchParams.set('start_date', selectedDateIso)
-    url.searchParams.set('end_date', selectedDateIso)
-
     setIsForecastLoading(true)
     setForecastError(null)
 
-    fetch(url, { signal: abortController.signal })
-      .then(async (response) => {
+    Promise.all(
+      selectedRoofs.map(async (roof) => {
+        const url = new URL('https://api.open-meteo.com/v1/forecast')
+        url.searchParams.set('latitude', roof.latDeg.toFixed(6))
+        url.searchParams.set('longitude', roof.lonDeg.toFixed(6))
+        url.searchParams.set('hourly', 'global_tilted_irradiance')
+        url.searchParams.set('tilt', toOpenMeteoTiltDeg(roof.roofPitchDeg).toFixed(2))
+        url.searchParams.set('azimuth', toOpenMeteoAzimuthDeg(roof.roofAzimuthDeg).toFixed(2))
+        url.searchParams.set('capacity', capacityKwp.toFixed(2))
+        url.searchParams.set('timezone', timeZone)
+        url.searchParams.set('start_date', selectedDateIso)
+        url.searchParams.set('end_date', selectedDateIso)
+
+        const response = await fetch(url, { signal: abortController.signal })
         if (!response.ok) {
           throw new Error(`Forecast API request failed with HTTP ${response.status}`)
         }
@@ -149,11 +154,15 @@ export function SunOverlayColumn({
         const time = payload.hourly?.time ?? []
         const irradiance = payload.hourly?.global_tilted_irradiance ?? []
         const pointCount = Math.min(time.length, irradiance.length)
-        const points: ForecastPoint[] = []
+        const profile: Array<{ minuteOfDay: number; value: number }> = []
 
         for (let idx = 0; idx < pointCount; idx += 1) {
           const timestampIso = time[idx]
           if (!timestampIso.startsWith(selectedDateIso)) {
+            continue
+          }
+          const minuteOfDay = parseHhmmToMinuteOfDay(timestampIso.slice(11, 16))
+          if (minuteOfDay === null) {
             continue
           }
 
@@ -162,10 +171,19 @@ export function SunOverlayColumn({
             continue
           }
 
-          points.push({ timestampIso, irradianceWm2 })
+          profile.push({ minuteOfDay, value: irradianceWm2 })
         }
 
-        setForecastPoints(points)
+        return profile
+      }),
+    )
+      .then((profiles) => {
+        const aggregated = sumProfiles(profiles).map((point) => ({
+          minuteOfDay: point.minuteOfDay,
+          timeLabel: formatMinuteOfDay(point.minuteOfDay),
+          irradianceWm2: point.value,
+        }))
+        setForecastPoints(aggregated)
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -181,7 +199,7 @@ export function SunOverlayColumn({
     return () => {
       abortController.abort()
     }
-  }, [capacityKwp, hasForecastInputs, latDeg, lonDeg, roofAzimuthDeg, roofPitchDeg, selectedDateIso, timeZone])
+  }, [capacityKwp, hasForecastInputs, selectedDateIso, selectedRoofs, timeZone])
 
   const forecastChartData = useMemo<ChartData<'line'> | null>(() => {
     if (forecastPoints.length === 0) {
@@ -189,7 +207,7 @@ export function SunOverlayColumn({
     }
 
     return {
-      labels: forecastPoints.map((point) => point.timestampIso.slice(11, 16)),
+      labels: forecastPoints.map((point) => point.timeLabel),
       datasets: [
         {
           label: 'POA irradiance forecast (W/m2)',
@@ -250,20 +268,51 @@ export function SunOverlayColumn({
   }, [forecastPoints])
 
   const annualProfile = useMemo(() => {
-    if (latDeg === null || lonDeg === null || roofPitchDeg === null || roofAzimuthDeg === null) {
+    if (selectedRoofs.length === 0) {
       return null
     }
 
-    const { p, q } = planeSlopeFromPitchAzimuth(roofPitchDeg, roofAzimuthDeg)
-    return getAnnualAggregatedDayProfile({
-      year: selectedYear,
-      timeZone,
-      latDeg,
-      lonDeg,
-      plane: { p, q, r: 0 },
-      stepMinutes: 15,
-    })
-  }, [latDeg, lonDeg, roofAzimuthDeg, roofPitchDeg, selectedYear, timeZone])
+    const profiles = selectedRoofs
+      .map((roof) => {
+        const { p, q } = planeSlopeFromPitchAzimuth(roof.roofPitchDeg, roof.roofAzimuthDeg)
+        return getAnnualAggregatedDayProfile({
+          year: selectedYear,
+          timeZone,
+          latDeg: roof.latDeg,
+          lonDeg: roof.lonDeg,
+          plane: { p, q, r: roof.roofPlane.r },
+          stepMinutes: 15,
+        })
+      })
+      .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile))
+
+    if (profiles.length === 0) {
+      return null
+    }
+
+    const mergedPoints = sumProfiles(
+      profiles.map((profile) => profile.points.map((point) => ({ minuteOfDay: point.minuteOfDay, value: point.value }))),
+    ).map((point) => ({
+      minuteOfDay: point.minuteOfDay,
+      timeLabel: formatMinuteOfDay(point.minuteOfDay),
+      value: point.value,
+    }))
+
+    if (mergedPoints.length === 0) {
+      return null
+    }
+
+    return {
+      points: mergedPoints,
+      meta: {
+        dayCount: profiles[0].meta.dayCount,
+        sampledDayCount: profiles[0].meta.sampledDayCount,
+        sampleWindowDays: profiles[0].meta.sampleWindowDays,
+        stepMinutes: profiles[0].meta.stepMinutes,
+        nonZeroBuckets: mergedPoints.length,
+      },
+    }
+  }, [selectedRoofs, selectedYear, timeZone])
 
   const annualChartData = useMemo<ChartData<'line'> | null>(() => {
     if (!annualProfile) {
@@ -326,7 +375,7 @@ export function SunOverlayColumn({
           <section className="panel-section">
             <h3>Forecast POA</h3>
             {!selectedDateIso && <p>Select datetime above to load irradiance forecast.</p>}
-            {selectedDateIso && !hasForecastInputs && <p>Solve a roof plane first to provide location and roof orientation.</p>}
+            {selectedDateIso && !hasForecastInputs && <p>Select one or more solved polygons to load irradiance forecast.</p>}
             {selectedDateIso && hasForecastInputs && isForecastLoading && <p>Loading forecast data...</p>}
             {selectedDateIso && hasForecastInputs && forecastError && <p className="status-error">{forecastError}</p>}
             {selectedDateIso && hasForecastInputs && !isForecastLoading && !forecastError && forecastPoints.length === 0 && (
@@ -338,10 +387,11 @@ export function SunOverlayColumn({
                   <Line data={forecastChartData} options={forecastChartOptions} />
                 </div>
                 <p data-testid="sun-forecast-peak">
-                  Peak: {forecastPeak.irradianceWm2.toFixed(0)} W/m2 at {forecastPeak.timestampIso.slice(11, 16)}
+                  Peak: {forecastPeak.irradianceWm2.toFixed(0)} W/m2 at {forecastPeak.timeLabel}
                 </p>
                 <p data-testid="sun-forecast-points">Points: {forecastPoints.length}</p>
                 <p data-testid="sun-forecast-date">Date: {selectedDateIso}</p>
+                <p data-testid="sun-forecast-selection">Selected polygons: {selectedCount}</p>
                 <p data-testid="sun-forecast-power">
                   Estimated PV peak: {(capacityKwp * (forecastPeak.irradianceWm2 / 1000)).toFixed(2)} kW ({capacityKwp.toFixed(1)} kWp)
                 </p>
@@ -350,9 +400,7 @@ export function SunOverlayColumn({
           </section>
           <section className="panel-section">
             <h3>Annual Day Profile</h3>
-            {(latDeg === null || lonDeg === null || roofPitchDeg === null || roofAzimuthDeg === null) && (
-              <p>Solve a roof plane first to compute annual aggregation.</p>
-            )}
+            {selectedRoofs.length === 0 && <p>Select one or more solved polygons to compute annual aggregation.</p>}
             {annualProfile && annualChartData && annualPeak && (
               <>
                 <p>Accumulated roof irradiance by time of day for {selectedYear}.</p>
@@ -364,7 +412,7 @@ export function SunOverlayColumn({
                 </p>
                 <p data-testid="sun-annual-meta">
                   Days: {annualProfile.meta.dayCount}, Sampled: {annualProfile.meta.sampledDayCount} (x{annualProfile.meta.sampleWindowDays}),
-                  Step: {annualProfile.meta.stepMinutes} min, Buckets: {annualProfile.meta.nonZeroBuckets}
+                  Step: {annualProfile.meta.stepMinutes} min, Buckets: {annualProfile.meta.nonZeroBuckets}, Selected polygons: {selectedCount}
                 </p>
               </>
             )}

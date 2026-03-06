@@ -21,9 +21,16 @@ interface FootprintStateEntry {
   constraints: FaceConstraints
 }
 
+interface ImportedFootprintEntry {
+  footprintId: string
+  polygon: Array<[number, number]>
+  vertexHeights: VertexHeightConstraint[]
+}
+
 interface ProjectState {
   footprints: Record<string, FootprintStateEntry>
   activeFootprintId: string | null
+  selectedFootprintIds: string[]
   drawDraft: Array<[number, number]>
   isDrawing: boolean
   sunProjection: ProjectSunProjectionSettings
@@ -36,6 +43,10 @@ type Action =
   | { type: 'UNDO_DRAFT_POINT' }
   | { type: 'COMMIT_FOOTPRINT' }
   | { type: 'SET_ACTIVE_FOOTPRINT'; footprintId: string }
+  | { type: 'SELECT_ONLY_FOOTPRINT'; footprintId: string }
+  | { type: 'TOGGLE_FOOTPRINT_SELECTION'; footprintId: string }
+  | { type: 'SELECT_ALL_FOOTPRINTS' }
+  | { type: 'CLEAR_FOOTPRINT_SELECTION' }
   | { type: 'DELETE_FOOTPRINT'; footprintId: string }
   | { type: 'MOVE_VERTEX'; payload: { vertexIndex: number; point: [number, number] } }
   | { type: 'MOVE_EDGE'; payload: { edgeIndex: number; delta: [number, number] } }
@@ -47,11 +58,13 @@ type Action =
   | { type: 'SET_SUN_PROJECTION_ENABLED'; enabled: boolean }
   | { type: 'SET_SUN_PROJECTION_DATETIME'; datetimeIso: string | null }
   | { type: 'SET_SUN_PROJECTION_DAILY_DATE'; dailyDateIso: string | null }
+  | { type: 'UPSERT_IMPORTED_FOOTPRINTS'; entries: ImportedFootprintEntry[] }
   | { type: 'LOAD'; payload: ProjectState }
 
 const initialState: ProjectState = {
   footprints: {},
   activeFootprintId: null,
+  selectedFootprintIds: [],
   drawDraft: [],
   isDrawing: false,
   sunProjection: DEFAULT_SUN_PROJECTION,
@@ -121,6 +134,7 @@ function removeFootprintAndPickActive(state: ProjectState, footprintId: string):
       state.activeFootprintId === footprintId
         ? (nextIds.at(-1) ?? null)
         : (state.activeFootprintId && nextFootprints[state.activeFootprintId] ? state.activeFootprintId : nextIds.at(-1) ?? null),
+    selectedFootprintIds: state.selectedFootprintIds.filter((id) => id !== footprintId && nextFootprints[id]),
   }
 }
 
@@ -183,6 +197,7 @@ function sanitizeLoadedState(state: ProjectState): ProjectState {
   return {
     ...state,
     footprints: sanitized,
+    selectedFootprintIds: state.selectedFootprintIds.filter((id) => Boolean(sanitized[id])),
     activeFootprintId:
       state.activeFootprintId && sanitized[state.activeFootprintId]
         ? state.activeFootprintId
@@ -232,6 +247,7 @@ function reducer(state: ProjectState, action: Action): ProjectState {
           },
         },
         activeFootprintId: footprintId,
+        selectedFootprintIds: [footprintId],
         isDrawing: false,
         drawDraft: [],
       }
@@ -243,6 +259,47 @@ function reducer(state: ProjectState, action: Action): ProjectState {
       return {
         ...state,
         activeFootprintId: action.footprintId,
+      }
+    case 'SELECT_ONLY_FOOTPRINT':
+      if (!state.footprints[action.footprintId]) {
+        return state
+      }
+      return {
+        ...state,
+        selectedFootprintIds: [action.footprintId],
+        activeFootprintId: action.footprintId,
+      }
+    case 'TOGGLE_FOOTPRINT_SELECTION':
+      if (!state.footprints[action.footprintId]) {
+        return state
+      }
+      if (state.selectedFootprintIds.includes(action.footprintId)) {
+        const nextSelected = state.selectedFootprintIds.filter((id) => id !== action.footprintId)
+        return {
+          ...state,
+          selectedFootprintIds: nextSelected,
+          activeFootprintId:
+            state.activeFootprintId === action.footprintId
+              ? (nextSelected.at(-1) ?? state.activeFootprintId)
+              : state.activeFootprintId,
+        }
+      }
+      return {
+        ...state,
+        selectedFootprintIds: [...state.selectedFootprintIds, action.footprintId],
+        activeFootprintId: action.footprintId,
+      }
+    case 'SELECT_ALL_FOOTPRINTS': {
+      const allIds = Object.keys(state.footprints)
+      return {
+        ...state,
+        selectedFootprintIds: allIds,
+      }
+    }
+    case 'CLEAR_FOOTPRINT_SELECTION':
+      return {
+        ...state,
+        selectedFootprintIds: [],
       }
     case 'DELETE_FOOTPRINT':
       if (!state.footprints[action.footprintId]) {
@@ -393,6 +450,38 @@ function reducer(state: ProjectState, action: Action): ProjectState {
           dailyDateIso: action.dailyDateIso,
         },
       }
+    case 'UPSERT_IMPORTED_FOOTPRINTS': {
+      if (action.entries.length === 0) {
+        return state
+      }
+
+      const nextFootprints = { ...state.footprints }
+      const importedIds: string[] = []
+
+      for (const entry of action.entries) {
+        const footprint: FootprintPolygon = {
+          id: entry.footprintId,
+          vertices: entry.polygon,
+        }
+        nextFootprints[entry.footprintId] = {
+          footprint,
+          constraints: {
+            vertexHeights: sanitizeVertexHeights(entry.vertexHeights, footprint.vertices.length),
+          },
+        }
+        importedIds.push(entry.footprintId)
+      }
+
+      const activeFootprintId = importedIds.at(-1) ?? state.activeFootprintId
+      return {
+        ...state,
+        footprints: nextFootprints,
+        activeFootprintId,
+        selectedFootprintIds: importedIds,
+        isDrawing: false,
+        drawDraft: [],
+      }
+    }
     case 'LOAD':
       return sanitizeLoadedState(action.payload)
     default:
@@ -411,6 +500,7 @@ function readStorage(): ProjectState | null {
       return {
         footprints,
         activeFootprintId: parsed.activeFootprintId ?? null,
+        selectedFootprintIds: [],
         drawDraft: [],
         isDrawing: false,
         sunProjection: {
@@ -467,6 +557,8 @@ export function useProjectStore() {
       state,
       activeFootprint,
       activeConstraints,
+      selectedFootprintIds: state.selectedFootprintIds,
+      isFootprintSelected: (footprintId: string) => state.selectedFootprintIds.includes(footprintId),
       sunProjection: state.sunProjection,
       startDrawing: () => dispatch({ type: 'START_DRAW' }),
       cancelDrawing: () => dispatch({ type: 'CANCEL_DRAW' }),
@@ -474,6 +566,10 @@ export function useProjectStore() {
       undoDraftPoint: () => dispatch({ type: 'UNDO_DRAFT_POINT' }),
       commitFootprint: () => dispatch({ type: 'COMMIT_FOOTPRINT' }),
       setActiveFootprint: (footprintId: string) => dispatch({ type: 'SET_ACTIVE_FOOTPRINT', footprintId }),
+      selectOnlyFootprint: (footprintId: string) => dispatch({ type: 'SELECT_ONLY_FOOTPRINT', footprintId }),
+      toggleFootprintSelection: (footprintId: string) => dispatch({ type: 'TOGGLE_FOOTPRINT_SELECTION', footprintId }),
+      selectAllFootprints: () => dispatch({ type: 'SELECT_ALL_FOOTPRINTS' }),
+      clearFootprintSelection: () => dispatch({ type: 'CLEAR_FOOTPRINT_SELECTION' }),
       deleteFootprint: (footprintId: string) => dispatch({ type: 'DELETE_FOOTPRINT', footprintId }),
       moveVertex: (vertexIndex: number, point: [number, number]) =>
         dispatch({ type: 'MOVE_VERTEX', payload: { vertexIndex, point } }),
@@ -512,6 +608,13 @@ export function useProjectStore() {
         dispatch({ type: 'SET_SUN_PROJECTION_DATETIME', datetimeIso }),
       setSunProjectionDailyDateIso: (dailyDateIso: string | null) =>
         dispatch({ type: 'SET_SUN_PROJECTION_DAILY_DATE', dailyDateIso }),
+      upsertImportedFootprints: (entries: ImportedFootprintEntry[]) => {
+        if (entries.length === 0) {
+          return false
+        }
+        dispatch({ type: 'UPSERT_IMPORTED_FOOTPRINTS', entries })
+        return true
+      },
     }),
     [activeConstraints, activeFootprint, state],
   )

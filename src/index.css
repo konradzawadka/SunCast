@@ -77,9 +77,14 @@ body {
   text-align: left;
 }
 
+.footprint-list-item-selected {
+  border-color: #79d27a;
+  background: rgba(121, 210, 122, 0.14);
+}
+
 .footprint-list-item-active {
   border-color: #4ccde2;
-  background: rgba(76, 205, 226, 0.18);
+  background: rgba(76, 205, 226, 0.22);
 }
 
 .constraint-row {

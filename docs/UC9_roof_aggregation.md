@@ -273,4 +273,3 @@ Later you may add:
 * list of selected polygon ids
 * alternative aggregation modes
 
-Your best advisor Jacuś.
