@@ -53,13 +53,13 @@ export function validateFootprint(footprint: FootprintPolygon | null): string[] 
   const vertices = footprint.vertices
 
   if (vertices.length < 3) {
-    errors.push('Footprint must have at least 3 vertices')
+    errors.push('Roof polygon must have at least 3 vertices')
     return errors
   }
 
   const uniqueCount = new Set(vertices.map(([lon, lat]) => `${lon.toFixed(12)}:${lat.toFixed(12)}`)).size
   if (uniqueCount < 3) {
-    errors.push('Footprint must have at least 3 distinct vertices')
+    errors.push('Roof polygon must have at least 3 distinct vertices')
     return errors
   }
 
@@ -71,7 +71,7 @@ export function validateFootprint(footprint: FootprintPolygon | null): string[] 
     const dy = next.y - current.y
     const edgeLen = Math.sqrt(dx * dx + dy * dy)
     if (edgeLen < EDGE_LENGTH_EPSILON_M) {
-      errors.push('Footprint edges must be longer than 0.01 m')
+      errors.push('Roof polygon edges must be longer than 0.01 m')
       return errors
     }
   }
@@ -89,7 +89,7 @@ export function validateFootprint(footprint: FootprintPolygon | null): string[] 
       const b2 = vertices[(j + 1) % vertices.length]
 
       if (segmentsIntersect(a1, a2, b1, b2)) {
-        errors.push('Footprint cannot self-intersect')
+        errors.push('Roof polygon cannot self-intersect')
         return errors
       }
     }

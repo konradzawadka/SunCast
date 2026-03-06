@@ -58,6 +58,15 @@ body {
   gap: 8px;
 }
 
+.panel-section details {
+  margin-top: 10px;
+}
+
+.panel-section summary {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
 .footprint-list {
   display: grid;
   gap: 6px;
@@ -95,6 +104,14 @@ button {
   color: #ecf1f4;
   padding: 7px 10px;
   border-radius: 6px;
+}
+
+.ui-input {
+  width: 100%;
+}
+
+.ui-label {
+  display: block;
 }
 
 button {
@@ -148,6 +165,42 @@ button:disabled {
 
 .editor-map-wrap {
   position: relative;
+}
+
+.sun-overlay-column {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 14;
+  width: min(360px, calc(100% - 28px));
+  border: 1px solid #324248;
+  border-radius: 10px;
+  background: rgba(17, 21, 23, 0.95);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.sun-overlay-column-collapsed {
+  width: 110px;
+}
+
+.sun-overlay-toggle {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #324248;
+  border-radius: 0;
+  text-align: left;
+  background: rgba(25, 33, 36, 0.95);
+}
+
+.sun-overlay-content {
+  max-height: min(76vh, 760px);
+  overflow: auto;
+  padding: 10px;
+}
+
+.sun-overlay-content .panel-section:last-child {
+  margin-bottom: 0;
 }
 
 .map-root {
@@ -302,5 +355,15 @@ button:disabled {
   .editor-panel {
     border-right: 0;
     border-bottom: 1px solid #2a3539;
+  }
+
+  .sun-overlay-column {
+    top: 8px;
+    right: 8px;
+    width: min(340px, calc(100% - 16px));
+  }
+
+  .sun-overlay-column-collapsed {
+    width: 104px;
   }
 }

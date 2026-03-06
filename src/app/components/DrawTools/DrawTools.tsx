@@ -17,10 +17,10 @@ export function DrawTools({
 }: DrawToolsProps) {
   return (
     <section className="panel-section">
-      <h3>Footprint</h3>
+      <h3>Roof Polygon</h3>
       {!isDrawing ? (
         <button type="button" onClick={onStart} data-testid="draw-footprint-button">
-          Draw Footprint
+          Draw Roof Polygon
         </button>
       ) : (
         <div className="draw-actions">

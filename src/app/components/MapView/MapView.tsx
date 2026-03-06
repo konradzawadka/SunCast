@@ -51,6 +51,7 @@ type MapFeature = GeoJSON.Feature<GeoJSON.Point | GeoJSON.LineString | GeoJSON.P
 const ORBIT_PITCH_DEG = 60
 const ORBIT_BEARING_DEG = -20
 const MAX_ORBIT_PITCH_DEG = 85
+const AUTO_FOCUS_MAX_ZOOM = 19
 const CLICK_HIT_TOLERANCE_PX = 10
 const DRAG_HIT_TOLERANCE_PX = 12
 const FOOTPRINT_HIT_LAYER_ID = 'footprints-hit'
@@ -278,12 +279,14 @@ export function MapView({
   const selectedEdgeRef = useRef(selectedEdgeIndex)
   const vertexConstraintsRef = useRef(vertexConstraints)
   const orbitEnabledRef = useRef(orbitEnabled)
+  const hasAppliedInitialFootprintFocusRef = useRef(false)
   const [debugEnabled, setDebugEnabled] = useState(true)
   const debugEnabledRef = useRef(debugEnabled)
   const dragStateRef = useRef<DragState | null>(null)
   const [gizmoScreenPos, setGizmoScreenPos] = useState<{ left: number; top: number } | null>(null)
   const [mapZoom, setMapZoom] = useState(18)
   const [mapPitch, setMapPitch] = useState(0)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
   const adjustOrbitCamera = (bearingDeltaDeg: number, pitchDeltaDeg: number) => {
     const map = mapRef.current
@@ -554,6 +557,7 @@ export function MapView({
     setMapPitch(map.getPitch())
 
     map.on('load', () => {
+      setMapLoaded(true)
       const roofLayer = new RoofMeshLayer('roof-mesh-layer')
       const debugOverlayLayer = new DebugOverlayLayer('roof-debug-overlay-layer')
       roofLayerRef.current = roofLayer
@@ -841,6 +845,25 @@ export function MapView({
   }, [drawDraft])
 
   useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded || hasAppliedInitialFootprintFocusRef.current) {
+      return
+    }
+
+    const firstFootprint = footprints.find((candidate) => candidate.vertices.length >= 3)
+    if (!firstFootprint) {
+      return
+    }
+
+    hasAppliedInitialFootprintFocusRef.current = true
+    map.fitBounds(toBounds(firstFootprint.vertices), {
+      padding: 80,
+      duration: 0,
+      maxZoom: AUTO_FOCUS_MAX_ZOOM,
+    })
+  }, [footprints, mapLoaded])
+
+  useEffect(() => {
     roofLayerRef.current?.setMeshes(roofMeshes)
     debugOverlayLayerRef.current?.setMeshes(roofMeshes)
   }, [roofMeshes])
@@ -892,7 +915,7 @@ export function MapView({
         duration: 500,
         bearing: ORBIT_BEARING_DEG,
         pitch: ORBIT_PITCH_DEG,
-        maxZoom: 20,
+        maxZoom: AUTO_FOCUS_MAX_ZOOM,
       })
       return
     }
@@ -945,7 +968,7 @@ export function MapView({
       >
         {debugEnabled ? 'Hide debug' : 'Show debug'}
       </button>
-      <div className="map-ground-label">Ground footprint</div>
+      <div className="map-ground-label">Ground roof polygon</div>
       {orbitEnabled && (
         <div className="map-camera-controls">
           <button

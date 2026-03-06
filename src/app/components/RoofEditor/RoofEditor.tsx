@@ -30,6 +30,7 @@ export function RoofEditor({
 }: RoofEditorProps) {
   const [vertexInputs, setVertexInputs] = useState<Record<number, string>>({})
   const [edgeInputs, setEdgeInputs] = useState<Record<number, string>>({})
+  const [edgeSectionOpen, setEdgeSectionOpen] = useState(true)
   const vertexInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const edgeInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
@@ -51,6 +52,7 @@ export function RoofEditor({
     if (selectedEdgeIndex === null) {
       return
     }
+    setEdgeSectionOpen(true)
     const input = edgeInputRefs.current[selectedEdgeIndex]
     if (!input) {
       return
@@ -63,7 +65,7 @@ export function RoofEditor({
     return (
       <section className="panel-section">
         <h3>Constraints</h3>
-        <p>Draw a footprint polygon first.</p>
+        <p>Draw a roof polygon first.</p>
       </section>
     )
   }
@@ -171,67 +173,69 @@ export function RoofEditor({
         })}
       </div>
 
-      <h4>Edge Heights</h4>
-      <div className="constraint-grid">
-        {Array.from({ length: vertexCount }).map((_, idx) => {
-          const startVertex = idx
-          const endVertex = (idx + 1) % vertexCount
-          const startHeight = vertexIndex.get(startVertex)
-          const endHeight = vertexIndex.get(endVertex)
-          const current =
-            startHeight !== undefined && endHeight !== undefined && startHeight === endHeight ? startHeight : undefined
-          const textValue =
-            edgeInputs[idx] ?? (selectedEdgeIndex === idx && current !== undefined ? current.toFixed(2) : '')
-          const isSelected = selectedEdgeIndex === idx
+      <details open={edgeSectionOpen} onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}>
+        <summary>Edge Heights</summary>
+        <div className="constraint-grid">
+          {Array.from({ length: vertexCount }).map((_, idx) => {
+            const startVertex = idx
+            const endVertex = (idx + 1) % vertexCount
+            const startHeight = vertexIndex.get(startVertex)
+            const endHeight = vertexIndex.get(endVertex)
+            const current =
+              startHeight !== undefined && endHeight !== undefined && startHeight === endHeight ? startHeight : undefined
+            const textValue =
+              edgeInputs[idx] ?? (selectedEdgeIndex === idx && current !== undefined ? current.toFixed(2) : '')
+            const isSelected = selectedEdgeIndex === idx
 
-          return (
-            <div key={`edge-${idx}`} className={`constraint-row${isSelected ? ' constraint-row-selected' : ''}`}>
-              <span>
-                E{idx} (V{idx}-V{(idx + 1) % vertexCount})
-              </span>
-              <input
-                ref={(node) => {
-                  edgeInputRefs.current[idx] = node
-                }}
-                type="number"
-                step="0.01"
-                placeholder={current !== undefined ? current.toFixed(2) : 'm'}
-                value={textValue}
-                onChange={(event) =>
-                  setEdgeInputs((prev) => ({
-                    ...prev,
-                    [idx]: event.target.value,
-                  }))
-                }
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') {
-                    return
+            return (
+              <div key={`edge-${idx}`} className={`constraint-row${isSelected ? ' constraint-row-selected' : ''}`}>
+                <span>
+                  E{idx} (V{idx}-V{(idx + 1) % vertexCount})
+                </span>
+                <input
+                  ref={(node) => {
+                    edgeInputRefs.current[idx] = node
+                  }}
+                  type="number"
+                  step="0.01"
+                  placeholder={current !== undefined ? current.toFixed(2) : 'm'}
+                  value={textValue}
+                  onChange={(event) =>
+                    setEdgeInputs((prev) => ({
+                      ...prev,
+                      [idx]: event.target.value,
+                    }))
                   }
-                  event.preventDefault()
-                  applyEdgeInput(idx, textValue)
-                }}
-                onBlur={() => applyEdgeInput(idx, textValue)}
-                data-testid={`edge-height-input-${idx}`}
-              />
-              <button
-                type="button"
-                data-testid={`edge-height-set-${idx}`}
-                onClick={() => applyEdgeInput(idx, textValue)}
-              >
-                Set
-              </button>
-              <button
-                type="button"
-                onClick={() => onClearEdge(idx)}
-                disabled={startHeight === undefined && endHeight === undefined}
-                data-testid={`edge-height-clear-${idx}`}
-              >
-                Clear
-              </button>
-            </div>
-          )
-        })}
-      </div>
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') {
+                      return
+                    }
+                    event.preventDefault()
+                    applyEdgeInput(idx, textValue)
+                  }}
+                  onBlur={() => applyEdgeInput(idx, textValue)}
+                  data-testid={`edge-height-input-${idx}`}
+                />
+                <button
+                  type="button"
+                  data-testid={`edge-height-set-${idx}`}
+                  onClick={() => applyEdgeInput(idx, textValue)}
+                >
+                  Set
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onClearEdge(idx)}
+                  disabled={startHeight === undefined && endHeight === undefined}
+                  data-testid={`edge-height-clear-${idx}`}
+                >
+                  Clear
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </details>
     </section>
   )
 }

@@ -29,10 +29,9 @@ interface SunDailyChartPanelProps {
   latDeg: number | null
   lonDeg: number | null
   plane: RoofPlane | null
-  onDateChange: (dateIso: string) => void
 }
 
-export function SunDailyChartPanel({ dateIso, timeZone, latDeg, lonDeg, plane, onDateChange }: SunDailyChartPanelProps) {
+export function SunDailyChartPanel({ dateIso, timeZone, latDeg, lonDeg, plane }: SunDailyChartPanelProps) {
   const sunriseSunset = useMemo(() => {
     if (!dateIso || latDeg === null || lonDeg === null) {
       return null
@@ -116,20 +115,8 @@ export function SunDailyChartPanel({ dateIso, timeZone, latDeg, lonDeg, plane, o
   return (
     <section className="panel-section">
       <h3>Daily POA</h3>
-      <div className="sun-controls">
-        <label className="sun-datetime-label" htmlFor="sun-daily-date-input">
-          Date ({timeZone})
-        </label>
-        <input
-          id="sun-daily-date-input"
-          type="date"
-          value={dateIso}
-          onChange={(event) => onDateChange(event.target.value)}
-          data-testid="sun-daily-date-input"
-        />
-      </div>
 
-      {!dateIso && <p>Select a date to compute sunrise, sunset, and POA profile.</p>}
+      {!dateIso && <p>Select date/time above to compute sunrise, sunset, and POA profile.</p>}
 
       {dateIso && !sunriseSunset && <p data-testid="sun-daily-no-events">No sunrise/sunset for this date at this latitude.</p>}
 

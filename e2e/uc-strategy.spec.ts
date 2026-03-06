@@ -95,6 +95,7 @@ test('UC2 + UC0.1: edge and vertex constraints update solver status', async ({ p
   ])
 
   await expect(page.getByText('CONSTRAINTS_INSUFFICIENT')).toBeVisible()
+  await expect(page.getByTestId('edge-height-input-0')).toBeVisible()
 
   await page.getByTestId('edge-height-input-0').fill('3')
   await page.getByTestId('edge-height-set-0').click()
@@ -260,13 +261,13 @@ test('UC6: daily POA chart appears and changes with selected date', async ({ pag
   await expect(page.getByText(/^Pitch:/)).toBeVisible()
   await expect(page.getByTestId('sun-daily-chart')).toHaveCount(0)
 
-  await page.getByTestId('sun-daily-date-input').fill('2026-06-21')
+  await page.getByTestId('sun-datetime-input').fill('2026-06-21T12:00:00-04:00')
   await expect(page.getByTestId('sun-daily-chart')).toBeVisible()
   await expect(page.getByTestId('sun-daily-peak')).toContainText('Peak:')
 
   const junePeak = await page.getByTestId('sun-daily-peak').innerText()
 
-  await page.getByTestId('sun-daily-date-input').fill('2026-12-21')
+  await page.getByTestId('sun-datetime-input').fill('2026-12-21T12:00:00-04:00')
   await expect(page.getByTestId('sun-daily-peak')).toContainText('Peak:')
   const decemberPeak = await page.getByTestId('sun-daily-peak').innerText()
 

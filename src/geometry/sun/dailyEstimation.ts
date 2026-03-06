@@ -3,7 +3,6 @@ import { computeSunProjection } from './sunProjection'
 
 const MS_PER_MINUTE = 60_000
 const MS_PER_DAY = 86_400_000
-const MINUTES_PER_DAY = 1_440
 
 interface DateParts {
   year: number
@@ -324,16 +323,4 @@ export function expectedSeriesPointCount(
   return Math.floor((sunsetTs - sunriseTs) / stepMs) + 1
 }
 
-export function localDayDurationMinutes(dateIso: string, timeZone: string): number | null {
-  const parsedDate = parseDateIso(dateIso)
-  if (!parsedDate) {
-    return null
-  }
-  const nextDate = addOneDay(parsedDate)
-  const dayStartTs = localTimeToUtcTs({ ...parsedDate, hour: 0, minute: 0, second: 0 }, timeZone)
-  const nextDayStartTs = localTimeToUtcTs({ ...nextDate, hour: 0, minute: 0, second: 0 }, timeZone)
-  return Math.round((nextDayStartTs - dayStartTs) / MS_PER_MINUTE)
-}
-
 export const SUN_DAILY_SERIES_STEP_MINUTES = 15
-export const MINUTES_IN_DAY = MINUTES_PER_DAY
