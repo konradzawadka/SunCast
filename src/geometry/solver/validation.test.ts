@@ -13,6 +13,7 @@ function footprint(id: string, vertices: Array<[number, number]>): FootprintPoly
   return {
     id,
     vertices,
+    kwp: 1,
   }
 }
 

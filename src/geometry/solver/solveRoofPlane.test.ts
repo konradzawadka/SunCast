@@ -12,6 +12,7 @@ describe('solveRoofPlane', () => {
         [-122.418, 37.775],
         [-122.421, 37.775],
       ],
+      kwp: 1,
     }
     const constraints: FaceConstraints = {
       vertexHeights: [
@@ -36,6 +37,7 @@ describe('solveRoofPlane', () => {
         [-122.418, 37.772],
         [-122.419, 37.775],
       ],
+      kwp: 1,
     }
     const constraints: FaceConstraints = {
       vertexHeights: [

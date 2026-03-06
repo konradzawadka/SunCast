@@ -24,6 +24,19 @@ export function sumProfiles(profiles: MinuteValuePoint[][]): MinuteValuePoint[] 
     .map(([minuteOfDay, value]) => ({ minuteOfDay, value }))
 }
 
+export function scaleProfile(profile: MinuteValuePoint[], factor: number): MinuteValuePoint[] {
+  if (!Number.isFinite(factor) || factor <= 0) {
+    return []
+  }
+
+  return profile
+    .filter((point) => isValidMinuteOfDay(point.minuteOfDay) && Number.isFinite(point.value))
+    .map((point) => ({
+      minuteOfDay: point.minuteOfDay,
+      value: point.value * factor,
+    }))
+}
+
 export function formatMinuteOfDay(minuteOfDay: number): string {
   const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.floor(minuteOfDay)))
   const hour = Math.floor(clamped / 60)

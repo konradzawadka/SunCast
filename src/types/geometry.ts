@@ -3,6 +3,7 @@ export type LngLat = [number, number]
 export interface FootprintPolygon {
   id: string
   vertices: LngLat[]
+  kwp: number
 }
 
 export interface VertexHeightConstraint {
@@ -68,6 +69,7 @@ export interface StoredFootprint {
   id: string
   polygon: LngLat[]
   vertexHeights: Record<string, number>
+  kwp?: number
 }
 
 export interface RoofMeshData {

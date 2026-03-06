@@ -45,6 +45,7 @@ describe('generateRoofMesh', () => {
         [-122.418, 37.775],
         [-122.421, 37.775],
       ],
+      kwp: 1,
     }
 
     const mesh = generateRoofMesh(footprint, [4, 4, 4, 4, 4])
@@ -63,6 +64,7 @@ describe('generateRoofMesh', () => {
         [-122.419, 37.775],
         [-122.421, 37.775],
       ],
+      kwp: 1,
     }
 
     const mesh = generateRoofMesh(footprint, [3, 3, 3, 3, 3, 3])
@@ -79,6 +81,7 @@ describe('generateRoofMesh', () => {
         [-122.4164, 37.7724],
         [-122.4208, 37.77235],
       ],
+      kwp: 1,
     }
 
     const mesh = generateRoofMesh(footprint, [2, 2.2, 2.1, 2])

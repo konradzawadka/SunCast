@@ -125,6 +125,7 @@ export function EditorScreen() {
     setSunProjectionDatetimeIso,
     setSunProjectionDailyDateIso,
     selectedFootprintIds,
+    setActiveFootprintKwp,
     selectOnlyFootprint,
     toggleFootprintSelection,
     selectAllFootprints,
@@ -209,6 +210,7 @@ export function EditorScreen() {
         footprintId,
         lonDeg: centroid[0],
         latDeg: centroid[1],
+        kwp: footprintEntry.footprint.kwp,
         roofPitchDeg: solvedEntry.metrics.pitchDeg,
         roofAzimuthDeg: solvedEntry.metrics.azimuthDeg,
         roofPlane: solvedEntry.solution.plane,
@@ -364,6 +366,7 @@ export function EditorScreen() {
           footprints={footprints}
           activeFootprintId={state.activeFootprintId}
           selectedFootprintIds={selectedFootprintIds}
+          activeFootprintKwp={activeFootprint?.kwp ?? null}
           onSelectFootprint={(footprintId, multiSelect) => {
             if (multiSelect) {
               toggleFootprintSelection(footprintId)
@@ -371,6 +374,9 @@ export function EditorScreen() {
               selectOnlyFootprint(footprintId)
             }
             clearSelectionState()
+          }}
+          onSetActiveFootprintKwp={(kwp) => {
+            setActiveFootprintKwp(kwp)
           }}
           onDeleteActiveFootprint={() => {
             if (!state.activeFootprintId) {

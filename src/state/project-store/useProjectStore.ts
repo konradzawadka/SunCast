@@ -10,6 +10,7 @@ import type {
 
 const STORAGE_KEY = 'suncast_project'
 const SOLVER_CONFIG_VERSION = 'uc6'
+const DEFAULT_FOOTPRINT_KWP = 4.3
 const DEFAULT_SUN_PROJECTION: ProjectSunProjectionSettings = {
   enabled: true,
   datetimeIso: null,
@@ -53,6 +54,7 @@ type Action =
   | { type: 'SET_VERTEX_HEIGHT'; payload: VertexHeightConstraint }
   | { type: 'SET_VERTEX_HEIGHTS'; payload: VertexHeightConstraint[] }
   | { type: 'SET_EDGE_HEIGHT'; payload: { edgeIndex: number; heightM: number } }
+  | { type: 'SET_ACTIVE_FOOTPRINT_KWP'; kwp: number }
   | { type: 'CLEAR_VERTEX_HEIGHT'; vertexIndex: number }
   | { type: 'CLEAR_EDGE_HEIGHT'; edgeIndex: number }
   | { type: 'SET_SUN_PROJECTION_ENABLED'; enabled: boolean }
@@ -142,6 +144,7 @@ function fromStoredFootprint(stored: StoredFootprint): FootprintStateEntry {
   const footprint: FootprintPolygon = {
     id: stored.id,
     vertices: stored.polygon,
+    kwp: Number.isFinite(stored.kwp) ? Math.max(0, stored.kwp as number) : DEFAULT_FOOTPRINT_KWP,
   }
 
   const vertexHeights = Object.entries(stored.vertexHeights)
@@ -169,6 +172,7 @@ function toStoredFootprint(entry: FootprintStateEntry): StoredFootprint {
     id: entry.footprint.id,
     polygon: entry.footprint.vertices,
     vertexHeights,
+    kwp: Number.isFinite(entry.footprint.kwp) ? Math.max(0, entry.footprint.kwp) : DEFAULT_FOOTPRINT_KWP,
   }
 }
 
@@ -183,6 +187,7 @@ function sanitizeLoadedState(state: ProjectState): ProjectState {
     const footprint: FootprintPolygon = {
       id: entry.footprint.id || footprintId,
       vertices: entry.footprint.vertices,
+      kwp: Number.isFinite(entry.footprint.kwp) ? Math.max(0, entry.footprint.kwp) : DEFAULT_FOOTPRINT_KWP,
     }
 
     sanitized[footprint.id] = {
@@ -235,6 +240,7 @@ function reducer(state: ProjectState, action: Action): ProjectState {
       const footprint: FootprintPolygon = {
         id: footprintId,
         vertices: state.drawDraft,
+        kwp: DEFAULT_FOOTPRINT_KWP,
       }
 
       return {
@@ -398,6 +404,14 @@ function reducer(state: ProjectState, action: Action): ProjectState {
           },
         }
       })
+    case 'SET_ACTIVE_FOOTPRINT_KWP':
+      return applyToActiveFootprint(state, (entry) => ({
+        ...entry,
+        footprint: {
+          ...entry.footprint,
+          kwp: Math.max(0, action.kwp),
+        },
+      }))
     case 'CLEAR_VERTEX_HEIGHT':
       return applyToActiveFootprint(state, (entry) => ({
         ...entry,
@@ -462,6 +476,7 @@ function reducer(state: ProjectState, action: Action): ProjectState {
         const footprint: FootprintPolygon = {
           id: entry.footprintId,
           vertices: entry.polygon,
+          kwp: state.footprints[entry.footprintId]?.footprint.kwp ?? DEFAULT_FOOTPRINT_KWP,
         }
         nextFootprints[entry.footprintId] = {
           footprint,
@@ -599,6 +614,13 @@ export function useProjectStore() {
           return false
         }
         dispatch({ type: 'SET_VERTEX_HEIGHTS', payload: constraints })
+        return true
+      },
+      setActiveFootprintKwp: (kwp: number) => {
+        if (!activeFootprint || !Number.isFinite(kwp)) {
+          return false
+        }
+        dispatch({ type: 'SET_ACTIVE_FOOTPRINT_KWP', kwp })
         return true
       },
       clearVertexHeight: (vertexIndex: number) => dispatch({ type: 'CLEAR_VERTEX_HEIGHT', vertexIndex }),

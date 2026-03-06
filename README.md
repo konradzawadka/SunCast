@@ -1,86 +1,254 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# SunCast - Solar Estimator and Short Time Forecast
 
-Currently, two official plugins are available:
+Interactive web application for **modeling roof geometry and estimating photovoltaic production** based on:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+* roof polygon footprint
+* vertex heights (roof slope)
+* orientation and pitch
+* installed PV capacity (kWp)
+* solar position calculations
 
-## React Compiler
+The app allows users to draw roofs, configure geometry, and visualize **estimated PV output over the day and year**.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+# Main Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Roof modeling
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+* draw roof polygons on the map
+* edit vertex positions
+* define vertex heights to determine roof pitch
+* view the roof in **orbit / 3D perspective**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### PV estimation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+* assign **kWp** capacity to each roof polygon
+* compute **daily solar output profile**
+* compute **annual aggregated production profile**
 
-## Testing
+### Multi-polygon support
+
+* multiple roof sections can be modeled
+* charts aggregate selected polygons
+* each polygon contributes based on its own geometry and kWp
+
+### Visualization
+
+* orbit camera view for roof inspection
+* solar irradiance calculations
+* Chart.js charts for PV output estimation
+
+---
+
+# Tech Stack
+
+Frontend:
+
+* **React**
+* **TypeScript**
+* **Vite**
+* **Chart.js**
+* **Playwright** for E2E testing
+
+Architecture concepts:
+
+* editor-driven geometry model
+* solar position calculations
+* local PV estimation (no external forecast required)
+
+---
+
+# Requirements
+
+Install:
+
+* **Node.js ≥ 18**
+* **npm ≥ 9**
+
+Verify:
 
 ```bash
-# Unit tests
+node -v
+npm -v
+```
+
+---
+
+# Install
+
+Clone repository and install dependencies.
+
+```bash
+git clone <repo-url>
+cd <project-folder>
+npm install
+```
+
+---
+
+# Run locally
+
+Start development server:
+
+```bash
+npm run dev
+```
+
+Vite will start the application:
+
+```
+http://localhost:5173
+```
+
+Hot reload is enabled.
+
+---
+
+# Build
+
+Create production build:
+
+```bash
+npm run build
+```
+
+Preview production build locally:
+
+```bash
+npm run preview
+```
+
+---
+
+# Tests
+
+### Unit tests
+
+```bash
 npm run test
+```
 
-# E2E tests
+### End-to-end tests
+
+```bash
 npm run test:e2e
+```
 
-# E2E coverage (coverage measured from Playwright)
+### E2E coverage
+
+```bash
 npm run coverage:e2e
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Playwright tests run the full application in a browser and validate user workflows.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Basic Workflow in the App
+
+Typical usage flow:
+
+1. **Draw roof polygon**
+
+   * click on map to add vertices
+   * minimum 3 vertices required
+
+2. **Finish polygon**
+
+   * click *Finish* once the last vertex is placed
+
+3. **Set installed PV capacity**
+
+   * enter `kWp` for the roof
+
+4. **Define roof heights**
+
+   * set heights for at least three vertices
+   * roof pitch is calculated automatically
+
+5. **Inspect roof**
+
+   * switch to **orbit view**
+   * verify roof orientation and slope visually
+
+6. **View PV charts**
+
+   * daily PV production estimate
+   * annual aggregated PV production profile
+
+---
+
+# Project Structure
+
+Simplified structure:
+
 ```
+src/
+ ├─ app/
+ │   ├─ components/
+ │   │   ├─ SunOverlayColumn.tsx
+ │   │   ├─ SunDailyChartPanel.tsx
+ │   │   └─ editor components
+ │   ├─ screens/
+ │   │   └─ EditorScreen.tsx
+ │
+ ├─ domain/
+ │   └─ solar calculations
+ │
+ ├─ store/
+ │   └─ project state
+ │
+docs/
+ └─ product use cases (UC*)
+```
+
+---
+
+# Documentation
+
+Detailed product design and roadmap live in:
+
+```
+docs/
+```
+
+These documents describe:
+
+* use cases
+* geometry solver
+* solar estimation logic
+* UI workflow
+
+---
+
+# Development Notes
+
+Important design principles:
+
+* **geometry first** — roof plane derived from vertex heights
+* **capacity weighted estimation** — polygons contribute according to kWp
+* **local solar calculation** — no external API required
+* **editor state driven UI**
+
+---
+
+# Contributing
+
+Recommended development workflow:
+
+1. read relevant **UC*.md** in `docs/`
+2. update logic or UI
+3. add or update tests
+4. verify with Playwright E2E
+
+---
+
+If useful, I can also create a **much stronger README version** that includes:
+
+* architecture diagram
+* solar math explanation
+* developer onboarding guide
+* screenshots of editor workflow.
+
