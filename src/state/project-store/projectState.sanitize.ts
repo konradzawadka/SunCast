@@ -1,19 +1,6 @@
-import type { FootprintPolygon, ProjectSunProjectionSettings, VertexHeightConstraint } from '../../types/geometry'
+import type { FootprintPolygon, ProjectSunProjectionSettings } from '../../types/geometry'
+import { sanitizeVertexHeights } from './projectState.constraints'
 import type { FootprintStateEntry, ProjectState } from './projectState.types'
-
-function sanitizeVertexHeights(vertexHeights: VertexHeightConstraint[], vertexCount: number): VertexHeightConstraint[] {
-  const byIndex = new Map<number, number>()
-  for (const constraint of vertexHeights) {
-    if (constraint.vertexIndex < 0 || constraint.vertexIndex >= vertexCount) {
-      continue
-    }
-    byIndex.set(constraint.vertexIndex, constraint.heightM)
-  }
-
-  return Array.from(byIndex.entries())
-    .map(([vertexIndex, heightM]) => ({ vertexIndex, heightM }))
-    .sort((a, b) => a.vertexIndex - b.vertexIndex)
-}
 
 export function sanitizeLoadedState(
   state: ProjectState,

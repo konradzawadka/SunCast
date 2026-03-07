@@ -1,89 +1,15 @@
-import { DrawTools } from '../components/DrawTools/DrawTools'
+import { DrawTools } from '../features/map-editor/DrawTools/DrawTools'
 import { FootprintPanel } from '../components/FootprintPanel'
 import { RoofEditor } from '../components/RoofEditor/RoofEditor'
 import { StatusPanel } from '../components/StatusPanel'
-import type { FaceConstraints, FootprintPolygon, SolverWarning } from '../../types/geometry'
-import { DevTools, type DebugFootprintEntryData, type ImportedFootprintConfigEntry } from './DevTools'
+import type { SunCastSidebarModel } from '../hooks/useSunCastController'
+import { DevTools } from '../features/debug/DevTools'
 
 interface SunCastSidebarProps {
-  isDrawing: boolean
-  drawDraftCount: number
-  footprints: FootprintPolygon[]
-  activeFootprintId: string | null
-  selectedFootprintIds: string[]
-  activeFootprint: FootprintPolygon | null
-  activeConstraints: FaceConstraints
-  selectedVertexIndex: number | null
-  selectedEdgeIndex: number | null
-  footprintEntries: DebugFootprintEntryData[]
-  interactionError: string | null
-  solverError: string | null
-  footprintErrors: string[]
-  warnings: SolverWarning[]
-  pitchDeg: number | null
-  azimuthDeg: number | null
-  roofAreaM2: number | null
-  minHeightM: number | null
-  maxHeightM: number | null
-  fitRmsErrorM: number | null
-  onStartDrawing: () => void
-  onUndoDrawing: () => void
-  onCancelDrawing: () => void
-  onCommitDrawing: () => void
-  onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
-  onSetActiveFootprintKwp: (kwp: number) => void
-  onDeleteActiveFootprint: () => void
-  onSetVertex: (vertexIndex: number, heightM: number) => boolean
-  onSetEdge: (edgeIndex: number, heightM: number) => boolean
-  onClearVertex: (vertexIndex: number) => void
-  onClearEdge: (edgeIndex: number) => void
-  onConstraintLimitExceeded: () => void
-  onStartTutorial: () => void
-  onDevSelectVertex: (vertexIndex: number) => void
-  onDevSelectEdge: (edgeIndex: number) => void
-  onDevClearSelection: () => void
-  onDevImportEntries: (entries: ImportedFootprintConfigEntry[]) => void
+  model: SunCastSidebarModel
 }
 
-export function SunCastSidebar({
-  isDrawing,
-  drawDraftCount,
-  footprints,
-  activeFootprintId,
-  selectedFootprintIds,
-  activeFootprint,
-  activeConstraints,
-  selectedVertexIndex,
-  selectedEdgeIndex,
-  footprintEntries,
-  interactionError,
-  solverError,
-  footprintErrors,
-  warnings,
-  pitchDeg,
-  azimuthDeg,
-  roofAreaM2,
-  minHeightM,
-  maxHeightM,
-  fitRmsErrorM,
-  onStartDrawing,
-  onUndoDrawing,
-  onCancelDrawing,
-  onCommitDrawing,
-  onSelectFootprint,
-  onSetActiveFootprintKwp,
-  onDeleteActiveFootprint,
-  onSetVertex,
-  onSetEdge,
-  onClearVertex,
-  onClearEdge,
-  onConstraintLimitExceeded,
-  onStartTutorial,
-  onDevSelectVertex,
-  onDevSelectEdge,
-  onDevClearSelection,
-  onDevImportEntries,
-}: SunCastSidebarProps) {
+export function SunCastSidebar({ model }: SunCastSidebarProps) {
   return (
     <aside className="sun-cast-sidebar">
       <div className="sun-cast-sidebar-title-row">
@@ -91,7 +17,7 @@ export function SunCastSidebar({
         <button
           type="button"
           className="sun-cast-tutorial-trigger"
-          onClick={onStartTutorial}
+          onClick={model.onStartTutorial}
           aria-label="Start tutorial"
           title="Start tutorial"
           data-testid="start-tutorial-button"
@@ -101,56 +27,58 @@ export function SunCastSidebar({
       </div>
       <p className="subtitle">Draw your roof and get short-term and long-term production forecasts.</p>
 
-      <DevTools
-        footprintEntries={footprintEntries}
-        onSelectVertex={onDevSelectVertex}
-        onSelectEdge={onDevSelectEdge}
-        onClearSelection={onDevClearSelection}
-        onImportEntries={onDevImportEntries}
-      />
+      {import.meta.env.DEV && (
+        <DevTools
+          footprintEntries={model.footprintEntries}
+          onSelectVertex={model.onDevSelectVertex}
+          onSelectEdge={model.onDevSelectEdge}
+          onClearSelection={model.onDevClearSelection}
+          onImportEntries={model.onDevImportEntries}
+        />
+      )}
 
       <DrawTools
-        isDrawing={isDrawing}
-        pointCount={drawDraftCount}
-        onStart={onStartDrawing}
-        onUndo={onUndoDrawing}
-        onCancel={onCancelDrawing}
-        onCommit={onCommitDrawing}
+        isDrawing={model.isDrawing}
+        pointCount={model.drawDraftCount}
+        onStart={model.onStartDrawing}
+        onUndo={model.onUndoDrawing}
+        onCancel={model.onCancelDrawing}
+        onCommit={model.onCommitDrawing}
       />
 
       <FootprintPanel
-        footprints={footprints}
-        activeFootprintId={activeFootprintId}
-        selectedFootprintIds={selectedFootprintIds}
-        activeFootprintKwp={activeFootprint?.kwp ?? null}
-        onSelectFootprint={onSelectFootprint}
-        onSetActiveFootprintKwp={onSetActiveFootprintKwp}
-        onDeleteActiveFootprint={onDeleteActiveFootprint}
+        footprints={model.footprints}
+        activeFootprintId={model.activeFootprintId}
+        selectedFootprintIds={model.selectedFootprintIds}
+        activeFootprintKwp={model.activeFootprint?.kwp ?? null}
+        onSelectFootprint={model.onSelectFootprint}
+        onSetActiveFootprintKwp={model.onSetActiveFootprintKwp}
+        onDeleteActiveFootprint={model.onDeleteActiveFootprint}
       />
 
       <RoofEditor
-        footprint={activeFootprint}
-        vertexConstraints={activeConstraints.vertexHeights}
-        selectedVertexIndex={selectedVertexIndex}
-        selectedEdgeIndex={selectedEdgeIndex}
-        onSetVertex={onSetVertex}
-        onSetEdge={onSetEdge}
-        onClearVertex={onClearVertex}
-        onClearEdge={onClearEdge}
-        onConstraintLimitExceeded={onConstraintLimitExceeded}
+        footprint={model.activeFootprint}
+        vertexConstraints={model.activeConstraints.vertexHeights}
+        selectedVertexIndex={model.selectedVertexIndex}
+        selectedEdgeIndex={model.selectedEdgeIndex}
+        onSetVertex={model.onSetVertex}
+        onSetEdge={model.onSetEdge}
+        onClearVertex={model.onClearVertex}
+        onClearEdge={model.onClearEdge}
+        onConstraintLimitExceeded={model.onConstraintLimitExceeded}
       />
 
       <StatusPanel
-        footprintErrors={footprintErrors}
-        interactionError={interactionError}
-        solverError={solverError}
-        warnings={warnings}
-        pitchDeg={pitchDeg}
-        azimuthDeg={azimuthDeg}
-        roofAreaM2={roofAreaM2}
-        minHeightM={minHeightM}
-        maxHeightM={maxHeightM}
-        fitRmsErrorM={fitRmsErrorM}
+        footprintErrors={model.footprintErrors}
+        interactionError={model.interactionError}
+        solverError={model.solverError}
+        warnings={model.warnings}
+        pitchDeg={model.pitchDeg}
+        azimuthDeg={model.azimuthDeg}
+        roofAreaM2={model.roofAreaM2}
+        minHeightM={model.minHeightM}
+        maxHeightM={model.maxHeightM}
+        fitRmsErrorM={model.fitRmsErrorM}
       />
     </aside>
   )

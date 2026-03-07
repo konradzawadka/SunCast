@@ -16,7 +16,10 @@ export default defineConfig(({ mode }) => {
     )
   }
 
+  const basePath = process.env.VITE_BASE_PATH ?? '/'
+
   return {
     plugins,
+    base: basePath,
   }
 })

@@ -214,7 +214,7 @@ Behavior:
 
 # UI integration
 
-Tutorial engine should run from **EditorScreen**.
+Tutorial engine should run from **SunCastScreen**.
 
 It observes:
 

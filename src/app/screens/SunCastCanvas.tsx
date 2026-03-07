@@ -1,141 +1,66 @@
-import { MapView } from '../components/MapView/MapView'
-import { SunDailyChartPanel } from '../components/SunDailyChartPanel'
-import { SunOverlayColumn, type SelectedRoofSunInput } from '../components/SunOverlayColumn'
-import { SunProjectionStatus } from '../components/SunProjectionStatus'
-import type { SunProjectionResult } from '../../geometry/sun/sunProjection'
-import type { FootprintPolygon, RoofMeshData, VertexHeightConstraint } from '../../types/geometry'
+import { MapView } from '../features/map-editor/MapView/MapView'
+import { SunDailyChartPanel } from '../features/sun-tools/SunDailyChartPanel'
+import { SunOverlayColumn } from '../features/sun-tools/SunOverlayColumn'
+import { SunProjectionStatus } from '../features/sun-tools/SunProjectionStatus'
+import type { SunCastCanvasModel } from '../hooks/useSunCastController'
 
 interface SunCastCanvasProps {
-  footprints: FootprintPolygon[]
-  activeFootprint: FootprintPolygon | null
-  selectedFootprintIds: string[]
-  drawDraft: Array<[number, number]>
-  isDrawing: boolean
-  orbitEnabled: boolean
-  roofMeshes: RoofMeshData[]
-  vertexConstraints: VertexHeightConstraint[]
-  selectedVertexIndex: number | null
-  selectedEdgeIndex: number | null
-  showSolveHint: boolean
-  sunProjectionEnabled: boolean
-  hasValidSunDatetime: boolean
-  sunDatetimeError: string | null
-  sunProjectionResult: SunProjectionResult | null
-  sunDatetimeRaw: string
-  sunDailyDateRaw: string
-  sunDailyTimeZone: string
-  selectedRoofInputs: SelectedRoofSunInput[]
-  hasSolvedActiveRoof: boolean
-  onToggleOrbit: () => void
-  onSelectVertex: (vertexIndex: number) => void
-  onSelectEdge: (edgeIndex: number) => void
-  onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
-  onClearSelection: () => void
-  onMoveVertex: (vertexIndex: number, point: [number, number]) => boolean
-  onMoveEdge: (edgeIndex: number, delta: [number, number]) => boolean
-  onMoveRejected: () => void
-  onAdjustHeight: (stepM: number) => void
-  onMapClick: (point: [number, number]) => void
-  onBearingChange: (bearingDeg: number) => void
-  onPitchChange: (pitchDeg: number) => void
-  onGeometryDragStateChange: (dragging: boolean) => void
-  productionComputationEnabled: boolean
-  onInitialized: () => void
-  onToggleSunProjectionEnabled: (enabled: boolean) => void
-  onSunDatetimeInputChange: (datetimeIsoRaw: string) => void
+  model: SunCastCanvasModel
 }
 
-export function SunCastCanvas({
-  footprints,
-  activeFootprint,
-  selectedFootprintIds,
-  drawDraft,
-  isDrawing,
-  orbitEnabled,
-  roofMeshes,
-  vertexConstraints,
-  selectedVertexIndex,
-  selectedEdgeIndex,
-  showSolveHint,
-  sunProjectionEnabled,
-  hasValidSunDatetime,
-  sunDatetimeError,
-  sunProjectionResult,
-  sunDatetimeRaw,
-  sunDailyDateRaw,
-  sunDailyTimeZone,
-  selectedRoofInputs,
-  hasSolvedActiveRoof,
-  onToggleOrbit,
-  onSelectVertex,
-  onSelectEdge,
-  onSelectFootprint,
-  onClearSelection,
-  onMoveVertex,
-  onMoveEdge,
-  onMoveRejected,
-  onAdjustHeight,
-  onMapClick,
-  onBearingChange,
-  onPitchChange,
-  onGeometryDragStateChange,
-  productionComputationEnabled,
-  onInitialized,
-  onToggleSunProjectionEnabled,
-  onSunDatetimeInputChange,
-}: SunCastCanvasProps) {
+export function SunCastCanvas({ model }: SunCastCanvasProps) {
   return (
     <main className="sun-cast-canvas">
       <MapView
-        footprints={footprints}
-        activeFootprint={activeFootprint}
-        selectedFootprintIds={selectedFootprintIds}
-        drawDraft={drawDraft}
-        isDrawing={isDrawing}
-        orbitEnabled={orbitEnabled}
-        onToggleOrbit={onToggleOrbit}
-        roofMeshes={roofMeshes}
-        vertexConstraints={vertexConstraints}
-        selectedVertexIndex={selectedVertexIndex}
-        selectedEdgeIndex={selectedEdgeIndex}
-        onSelectVertex={onSelectVertex}
-        onSelectEdge={onSelectEdge}
-        onSelectFootprint={onSelectFootprint}
-        onClearSelection={onClearSelection}
-        onMoveVertex={onMoveVertex}
-        onMoveEdge={onMoveEdge}
-        onMoveRejected={onMoveRejected}
-        onAdjustHeight={onAdjustHeight}
-        showSolveHint={showSolveHint}
-        onMapClick={onMapClick}
-        onBearingChange={onBearingChange}
-        onPitchChange={onPitchChange}
-        onGeometryDragStateChange={onGeometryDragStateChange}
-        onInitialized={onInitialized}
+        footprints={model.footprints}
+        activeFootprint={model.activeFootprint}
+        selectedFootprintIds={model.selectedFootprintIds}
+        drawDraft={model.drawDraft}
+        isDrawing={model.isDrawing}
+        orbitEnabled={model.orbitEnabled}
+        onToggleOrbit={model.onToggleOrbit}
+        roofMeshes={model.roofMeshes}
+        vertexConstraints={model.vertexConstraints}
+        selectedVertexIndex={model.selectedVertexIndex}
+        selectedEdgeIndex={model.selectedEdgeIndex}
+        onSelectVertex={model.onSelectVertex}
+        onSelectEdge={model.onSelectEdge}
+        onSelectFootprint={model.onSelectFootprint}
+        onClearSelection={model.onClearSelection}
+        onMoveVertex={model.onMoveVertex}
+        onMoveEdge={model.onMoveEdge}
+        onMoveRejected={model.onMoveRejected}
+        onAdjustHeight={model.onAdjustHeight}
+        showSolveHint={model.showSolveHint}
+        onMapClick={model.onMapClick}
+        onBearingChange={model.onBearingChange}
+        onPitchChange={model.onPitchChange}
+        onGeometryDragStateChange={model.onGeometryDragStateChange}
+        onInitialized={model.onInitialized}
       />
 
       <SunOverlayColumn
-        datetimeIso={sunDatetimeRaw}
-        timeZone={sunDailyTimeZone}
-        selectedRoofs={selectedRoofInputs}
-        onDatetimeInputChange={onSunDatetimeInputChange}
-        productionComputationEnabled={productionComputationEnabled}
-        expanded={hasSolvedActiveRoof && !isDrawing}
+        datetimeIso={model.sunDatetimeRaw}
+        timeZone={model.sunDailyTimeZone}
+        selectedRoofs={model.selectedRoofInputs}
+        onDatetimeInputChange={model.onSunDatetimeInputChange}
+        productionComputationEnabled={model.productionComputationEnabled}
+        expanded={model.hasSolvedActiveRoof && !model.isDrawing}
       >
-        {hasSolvedActiveRoof ? (
+        {model.hasSolvedActiveRoof ? (
           <>
             <SunProjectionStatus
-              enabled={sunProjectionEnabled}
-              hasDatetime={hasValidSunDatetime}
-              datetimeError={sunDatetimeError}
-              onToggleEnabled={onToggleSunProjectionEnabled}
-              result={sunProjectionResult}
+              enabled={model.sunProjectionEnabled}
+              hasDatetime={model.hasValidSunDatetime}
+              datetimeError={model.sunDatetimeError}
+              onToggleEnabled={model.onToggleSunProjectionEnabled}
+              result={model.sunProjectionResult}
             />
             <SunDailyChartPanel
-              dateIso={sunDailyDateRaw}
-              timeZone={sunDailyTimeZone}
-              selectedRoofs={selectedRoofInputs}
-              computationEnabled={productionComputationEnabled}
+              dateIso={model.sunDailyDateRaw}
+              timeZone={model.sunDailyTimeZone}
+              selectedRoofs={model.selectedRoofInputs}
+              computationEnabled={model.productionComputationEnabled}
             />
           </>
         ) : (

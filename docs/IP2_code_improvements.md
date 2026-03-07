@@ -6,7 +6,7 @@ Improve code readability by making naming explicit, consistent, and product-alig
 
 The main direction is:
 
-* `EditorScreen` → `SunCastScreen`
+* legacy main-screen naming → `SunCastScreen`
 * rename related files, components, hooks, and helpers in the same style
 * reduce ambiguous “editor” naming where the code is really about the main SunCast app flow
 
@@ -39,8 +39,8 @@ Replace the generic entry name with the real product flow name.
 
 ### Changes
 
-* `EditorScreen.tsx` → `SunCastScreen.tsx`
-* exported component `EditorScreen` → `SunCastScreen`
+* align main screen file name to `SunCastScreen.tsx`
+* align exported component name to `SunCastScreen`
 
 ### Follow-up
 
@@ -61,7 +61,7 @@ The main app screen immediately reflects product intent.
 
 ### Goal
 
-Rename all modules directly tied to `EditorScreen` into `SunCast*` naming.
+Rename all modules directly tied to `SunCastScreen` into `SunCast*` naming.
 
 ### Target direction
 
@@ -209,7 +209,7 @@ Keep neutral:
 
 Rename if tightly screen-specific:
 
-* `EditorScreen`
+* `SunCastScreen`
 * `EditorTopbar`
 * `EditorSidebar`
 * `EditorTutorialController`
@@ -261,7 +261,7 @@ Make the rename safe and reviewable.
 
 ### Safe order
 
-1. `EditorScreen` → `SunCastScreen`
+1. legacy main-screen naming → `SunCastScreen`
 2. direct imports of that screen
 3. screen-local helpers/hooks
 4. panels/components
@@ -332,10 +332,10 @@ This is a direction, not a forced final structure.
 
 First rename only the most important and most understandable elements:
 
-1. `EditorScreen.tsx` → `SunCastScreen.tsx`
-2. `EditorScreen` export → `SunCastScreen`
+1. align screen file naming to `SunCastScreen.tsx`
+2. `SunCastScreen` export → `SunCastScreen`
 3. route/import references
-4. `AnualDayProfilePanel.tsx` → `SunCastAnnualDayProfilePanel.tsx`
+4. `AnnualDayProfilePanel.tsx` → `SunCastAnnualDayProfilePanel.tsx`
 5. screen-specific helpers/hooks using `Editor` naming
 
 This gives immediate readability benefit.
@@ -355,4 +355,3 @@ This gives immediate readability benefit.
 ## Suggested next step after this plan
 
 Prepare a concrete rename matrix: **old name → new name**, grouped by files, components, hooks, and folders.
-

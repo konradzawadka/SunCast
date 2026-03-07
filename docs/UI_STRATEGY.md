@@ -16,7 +16,7 @@ Stage 1 UI supports geometry-first roof modeling on satellite imagery and keeps 
 
 
 ## Component Responsibilities
-- `EditorScreen`: orchestration, wiring state to UI components.
+- `SunCastScreen`: orchestration, wiring state to UI components.
 - `SunOverlayColumn`: sun input container and derived date/datetime propagation.
 - `SunProjectionStatus`: projection toggle + status output.
 - `SunDailyChartPanel`: daily POA visualization.

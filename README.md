@@ -54,9 +54,9 @@ Frontend:
 
 Architecture concepts:
 
-* editor-driven geometry model
-* solar position calculations
-* local PV estimation (no external forecast required)
+* geometry-first solver model
+* deterministic clear-sky estimation (local computation)
+* weather-based short-term forecast (Open-Meteo API)
 
 ---
 
@@ -189,24 +189,32 @@ Typical usage flow:
 
 Simplified structure:
 
-```
+```text
 src/
- ├─ app/
- │   ├─ components/
- │   │   ├─ SunOverlayColumn.tsx
- │   │   ├─ SunDailyChartPanel.tsx
- │   │   └─ editor components
- │   ├─ screens/
- │   │   └─ EditorScreen.tsx
- │
- ├─ domain/
- │   └─ solar calculations
- │
- ├─ store/
- │   └─ project state
- │
+  app/
+    components/
+      MapView/
+      DrawTools/
+      RoofEditor/
+      SunOverlayColumn.tsx
+      SunDailyChartPanel.tsx
+      ForecastPvPanel.tsx
+    screens/
+      SunCastScreen.tsx
+      SunCastSidebar.tsx
+      SunCastCanvas.tsx
+    hooks/
+  geometry/
+    projection/
+    solver/
+    mesh/
+    sun/
+  rendering/
+    roof-layer/
+  state/
+    project-store/
+  types/
 docs/
- └─ product use cases (UC*)
 ```
 
 ---
@@ -234,7 +242,8 @@ Important design principles:
 
 * **geometry first** — roof plane derived from vertex heights
 * **capacity weighted estimation** — polygons contribute according to kWp
-* **hybrid solar inputs** — local solar calculation + external weather forecast API
+* **clear-sky estimate** — deterministic local irradiance model used by geometric charts
+* **weather forecast estimate** — short-term forecast panel uses Open-Meteo weather inputs
 * **editor state driven UI**
 
 ---
@@ -247,12 +256,3 @@ Recommended development workflow:
 2. update logic or UI
 3. add or update tests
 4. verify with Playwright E2E
-
----
-
-If useful, I can also create a **much stronger README version** that includes:
-
-* architecture diagram
-* solar math explanation
-* developer onboarding guide
-* screenshots of editor workflow.

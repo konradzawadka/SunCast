@@ -1,19 +1,6 @@
-import type { FootprintPolygon, StoredFootprint, VertexHeightConstraint } from '../../types/geometry'
+import type { FootprintPolygon, StoredFootprint } from '../../types/geometry'
+import { sanitizeVertexHeights } from './projectState.constraints'
 import type { FootprintStateEntry } from './projectState.types'
-
-function sanitizeVertexHeights(vertexHeights: VertexHeightConstraint[], vertexCount: number): VertexHeightConstraint[] {
-  const byIndex = new Map<number, number>()
-  for (const constraint of vertexHeights) {
-    if (constraint.vertexIndex < 0 || constraint.vertexIndex >= vertexCount) {
-      continue
-    }
-    byIndex.set(constraint.vertexIndex, constraint.heightM)
-  }
-
-  return Array.from(byIndex.entries())
-    .map(([vertexIndex, heightM]) => ({ vertexIndex, heightM }))
-    .sort((a, b) => a.vertexIndex - b.vertexIndex)
-}
 
 export function fromStoredFootprint(stored: StoredFootprint, defaultFootprintKwp: number): FootprintStateEntry {
   const footprint: FootprintPolygon = {
