@@ -37,11 +37,6 @@ function extractYear(datetimeIso: string): number | null {
 export function AnualDayProfilePanel({ datetimeIso, timeZone, selectedRoofs }: AnualDayProfilePanelProps) {
   const selectedYear = useMemo(() => extractYear(datetimeIso) ?? new Date().getFullYear(), [datetimeIso])
 
-  const totalSelectedKwp = useMemo(
-    () => selectedRoofs.reduce((sum, roof) => sum + (Number.isFinite(roof.kwp) && roof.kwp > 0 ? roof.kwp : 0), 0),
-    [selectedRoofs],
-  )
-
   const annualProfile = useMemo(() => {
     if (selectedRoofs.length === 0) {
       return null

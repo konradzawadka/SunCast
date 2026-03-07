@@ -214,4 +214,3 @@ export function useConstraintEditor({
     setMoveRejectedError: () => setInteractionError('Roof polygon cannot self-intersect'),
   }
 }
-

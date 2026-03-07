@@ -65,4 +65,3 @@ export function useSolvedRoofEntries(footprintEntries: SolveInputEntry[], active
     }
   }, [activeFootprintId, footprintEntries])
 }
-

@@ -20,13 +20,13 @@ body {
   height: 100vh;
 }
 
-.editor-layout {
+.sun-cast-layout {
   display: grid;
   grid-template-columns: 360px 1fr;
   height: 100vh;
 }
 
-.editor-panel {
+.sun-cast-sidebar {
   border-right: 1px solid #2a3539;
   padding: 16px;
   overflow: auto;
@@ -168,7 +168,7 @@ button:disabled {
   margin: 10px 0 8px;
 }
 
-.editor-map-wrap {
+.sun-cast-canvas {
   position: relative;
 }
 
@@ -436,12 +436,12 @@ button:disabled {
 }
 
 @media (max-width: 1020px) {
-  .editor-layout {
+  .sun-cast-layout {
     grid-template-columns: 1fr;
     grid-template-rows: 52vh 48vh;
   }
 
-  .editor-panel {
+  .sun-cast-sidebar {
     border-right: 0;
     border-bottom: 1px solid #2a3539;
   }

@@ -85,23 +85,21 @@ test('sets 3 vertex heights and rotates orbit map', async ({ page }, testInfo) =
     }, { timeout: 10_000 })
     .toBeGreaterThan(3)
 
-  const debugToggle = page.getByTestId('debug-overlay-toggle-button')
-  await expect(debugToggle).toHaveText(/Hide debug/i)
-  await expect(page.getByTestId('map-debug-hud')).toBeVisible()
-  const debugOnScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
+  const meshToggle = page.getByTestId('mesh-visibility-toggle-button')
+  await expect(meshToggle).toHaveText(/Hide meshes/i)
+  const meshesOnScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
   await testInfo.attach('debug-on-map', {
-    body: debugOnScreenshot,
+    body: meshesOnScreenshot,
     contentType: 'image/png',
   })
 
-  await debugToggle.click()
-  await expect(debugToggle).toHaveText(/Show debug/i)
-  await expect(page.getByTestId('map-debug-hud')).toHaveCount(0)
+  await meshToggle.click()
+  await expect(meshToggle).toHaveText(/Show meshes/i)
   await page.waitForTimeout(250)
 
-  const debugOffScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
+  const meshesOffScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
   await testInfo.attach('debug-off-map', {
-    body: debugOffScreenshot,
+    body: meshesOffScreenshot,
     contentType: 'image/png',
   })
 })

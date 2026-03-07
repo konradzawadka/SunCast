@@ -1,7 +1,7 @@
-import { EditorScreen } from './app/screens/EditorScreen'
+import { SunCastScreen } from './app/screens/SunCastScreen'
 
 function App() {
-  return <EditorScreen />
+  return <SunCastScreen />
 }
 
 export default App

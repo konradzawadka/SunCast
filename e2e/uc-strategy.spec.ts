@@ -126,7 +126,7 @@ async function readStoredProject(page: Page): Promise<StoredProject> {
 test('UC0: bootstrap and footprint validation flow', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page.getByText('SunCast Editor')).toBeVisible()
+  await expect(page.getByText('SunCast')).toBeVisible()
   await expect(page.getByTestId('map-canvas')).toBeVisible()
 
   await page.getByTestId('draw-footprint-button').click()
@@ -185,7 +185,7 @@ test('UC2 + UC0.1: edge and vertex constraints update solver status', async ({ p
   await expect(page.getByText('CONSTRAINTS_OVERDETERMINED')).toHaveCount(0)
 })
 
-test('UC1 + UC4 + IP1: orbit mode, height gizmo, debug HUD, and non-orbit drag', async ({ page }) => {
+test('UC1 + UC4 + IP1: orbit mode, height gizmo, mesh toggle, and non-orbit drag', async ({ page }) => {
   await page.goto('/')
   await drawFootprint(page, [
     [0.30, 0.20],
@@ -198,19 +198,20 @@ test('UC1 + UC4 + IP1: orbit mode, height gizmo, debug HUD, and non-orbit drag',
   await setVertexHeight(page, 2, 30)
 
   await expect(page.getByText(/^Pitch:/)).toBeVisible()
-  await expect(page.getByTestId('map-debug-hud')).toBeVisible()
+  await expect(page.getByTestId('mesh-visibility-toggle-button')).toBeDisabled()
 
   await page.getByTestId('orbit-toggle-button').click()
 
   await expect(page.getByTestId('orbit-toggle-button')).toHaveText(/Exit orbit/i)
+  await expect(page.getByTestId('mesh-visibility-toggle-button')).toHaveText(/Hide meshes/i)
   await ensureHeightGizmoVisible(page)
   await expect(page.locator('.height-gizmo-button')).toHaveCount(2)
 
   await page.locator('.height-gizmo-button').first().click()
   await expect(page.getByText(/Active constraints:/)).toContainText('V0=2.10m')
 
-  await page.getByTestId('debug-overlay-toggle-button').click()
-  await expect(page.getByTestId('debug-overlay-toggle-button')).toHaveText(/Show debug/i)
+  await page.getByTestId('mesh-visibility-toggle-button').click()
+  await expect(page.getByTestId('mesh-visibility-toggle-button')).toHaveText(/Show meshes/i)
 
   await page.getByTestId('orbit-toggle-button').click()
   await expect(page.getByTestId('orbit-toggle-button')).toHaveText(/^Orbit$/)
@@ -328,13 +329,13 @@ test('UC6: daily production chart appears and changes with selected date', async
 
   await page.getByTestId('sun-datetime-input').fill('2026-06-21T12:00:00-04:00')
   await expect(page.getByTestId('sun-daily-chart')).toBeVisible()
-  await expect(page.getByTestId('sun-daily-peak')).toContainText('Peak:')
+  await expect(page.getByTestId('sun-daily-production-peak')).toContainText('Real production peak:')
 
-  const junePeak = await page.getByTestId('sun-daily-peak').innerText()
+  const junePeak = await page.getByTestId('sun-daily-production-peak').innerText()
 
   await page.getByTestId('sun-datetime-input').fill('2026-12-21T12:00:00-04:00')
-  await expect(page.getByTestId('sun-daily-peak')).toContainText('Peak:')
-  const decemberPeak = await page.getByTestId('sun-daily-peak').innerText()
+  await expect(page.getByTestId('sun-daily-production-peak')).toContainText('Real production peak:')
+  const decemberPeak = await page.getByTestId('sun-daily-production-peak').innerText()
 
   expect(decemberPeak).not.toBe(junePeak)
 })
@@ -345,7 +346,8 @@ test('UC12: tutorial highlights workflow controls and stores completion', async 
   })
   await page.goto('/')
 
-  await expect(page.getByRole('dialog', { name: /Tutorial step 1 of 5/i })).toBeVisible()
+  await expect(page.getByTestId('map-canvas')).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 1 of 6/i })).toBeVisible({ timeout: 30_000 })
   await expectTutorialSpotlightAround(page, page.getByTestId('draw-footprint-button'))
 
   await page.getByTestId('draw-footprint-button').click()
@@ -355,33 +357,36 @@ test('UC12: tutorial highlights workflow controls and stores completion', async 
     [0.58, 0.56],
   ])
 
-  await expect(page.getByRole('dialog', { name: /Tutorial step 2 of 5/i })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 2 of 6/i })).toBeVisible()
   await expectTutorialSpotlightAround(page, page.getByTestId('draw-finish-button'))
   await page.getByTestId('draw-finish-button').click()
 
-  await expect(page.getByRole('dialog', { name: /Tutorial step 3 of 5/i })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 3 of 6/i })).toBeVisible()
   await expectTutorialSpotlightAround(page, page.getByTestId('active-footprint-kwp-input'))
   await page.getByTestId('active-footprint-kwp-input').fill('5.1')
 
-  await expect(page.getByRole('dialog', { name: /Tutorial step 4 of 5/i })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 4 of 6/i })).toBeVisible()
   await expectTutorialSpotlightAround(page, page.getByTestId('vertex-heights-panel'))
 
   await setVertexHeight(page, 0, 2)
   await setVertexHeight(page, 1, 4)
   await setVertexHeight(page, 2, 6)
 
-  await expect(page.getByRole('dialog', { name: /Tutorial step 5 of 5/i })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 5 of 6/i })).toBeVisible()
   await expectTutorialSpotlightAround(page, page.getByTestId('status-pitch-value'))
   await expectTutorialSpotlightAround(page, page.getByTestId('orbit-toggle-button'))
 
   await page.getByTestId('orbit-toggle-button').click()
+  await expect(page.getByRole('dialog', { name: /Tutorial step 6 of 6/i })).toBeVisible()
+  await expectTutorialSpotlightAround(page, page.getByTestId('sun-datetime-input'))
+  await page.getByTestId('sun-datetime-input').fill('2026-06-21T12:00:00-04:00')
   await expect(page.getByRole('dialog', { name: /Tutorial step/i })).toHaveCount(0)
 
   const tutorialState = await page.evaluate(() => {
     const raw = window.localStorage.getItem('suncast_uc12_tutorial_state')
     return raw ? (JSON.parse(raw) as { completedSteps?: number; tutorialEnabled?: boolean }) : null
   })
-  expect(tutorialState?.completedSteps).toBe(5)
+  expect(tutorialState?.completedSteps).toBe(6)
   expect(tutorialState?.tutorialEnabled).toBeFalsy()
 
   await page.reload()

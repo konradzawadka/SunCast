@@ -1,4 +1,3 @@
-import { projectPointsToLocalMeters } from '../../geometry/projection/localMeters'
 import type { RoofMeshData } from '../../types/geometry'
 
 export interface WorldPoint {
@@ -36,23 +35,22 @@ export function buildRoofWorldGeometry(mesh: RoofMeshData, zExaggeration = 1): R
     return null
   }
 
-  const lngLat = mesh.vertices.map((vertex) => [vertex.lon, vertex.lat] as [number, number])
-  const { origin, points2d } = projectPointsToLocalMeters(lngLat)
-  const originMercX = lonToMercatorX(origin.lon0)
-  const originMercY = latToMercatorY(origin.lat0)
-  const unitsPerMeter = meterInMercatorCoordinateUnits(origin.lat0)
-
   const topVertices: WorldPoint[] = []
   const baseVertices: WorldPoint[] = []
+  let unitsPerMeterSum = 0
 
   for (let i = 0; i < mesh.vertices.length; i += 1) {
-    const point2d = points2d[i]
-    const z = mesh.vertices[i].z * zExaggeration
-    const worldX = originMercX + point2d.x * unitsPerMeter
-    const worldY = originMercY - point2d.y * unitsPerMeter
-    topVertices.push({ x: worldX, y: worldY, z: z * unitsPerMeter })
+    const vertex = mesh.vertices[i]
+    const unitsPerMeterAtVertex = meterInMercatorCoordinateUnits(vertex.lat)
+    const worldX = lonToMercatorX(vertex.lon)
+    const worldY = latToMercatorY(vertex.lat)
+    const topZ = vertex.z * zExaggeration * unitsPerMeterAtVertex
+    topVertices.push({ x: worldX, y: worldY, z: topZ })
     baseVertices.push({ x: worldX, y: worldY, z: 0 })
+    unitsPerMeterSum += unitsPerMeterAtVertex
   }
+
+  const unitsPerMeter = unitsPerMeterSum / mesh.vertices.length
 
   return {
     triangleIndices: mesh.triangleIndices,

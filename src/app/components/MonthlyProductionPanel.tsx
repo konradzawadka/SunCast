@@ -77,11 +77,6 @@ export function MonthlyProductionPanel({ datetimeIso, timeZone, selectedRoofs }:
     return hasData ? totals : null
   }, [selectedRoofs, selectedYear, timeZone])
 
-  const annualEnergyKwhEstimate = useMemo(
-    () => monthlyEnergyKwh?.reduce((sum, value) => sum + value, 0) ?? null,
-    [monthlyEnergyKwh],
-  )
-
   const chartData = useMemo<ChartData<'bar'> | null>(() => {
     if (!monthlyEnergyKwh) {
       return null

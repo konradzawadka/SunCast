@@ -84,4 +84,3 @@ export function useRoofDebugSimulation({
     console.groupEnd()
   }, [activeFootprint, activeSolved, mapBearingDeg, mapPitchDeg])
 }
-
