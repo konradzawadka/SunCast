@@ -23,6 +23,7 @@ interface AnualDayProfilePanelProps {
   datetimeIso: string
   timeZone: string
   selectedRoofs: SelectedRoofSunInput[]
+  computationEnabled?: boolean
 }
 
 function extractYear(datetimeIso: string): number | null {
@@ -34,11 +35,16 @@ function extractYear(datetimeIso: string): number | null {
   return Number.isInteger(year) ? year : null
 }
 
-export function AnualDayProfilePanel({ datetimeIso, timeZone, selectedRoofs }: AnualDayProfilePanelProps) {
+export function AnualDayProfilePanel({
+  datetimeIso,
+  timeZone,
+  selectedRoofs,
+  computationEnabled = true,
+}: AnualDayProfilePanelProps) {
   const selectedYear = useMemo(() => extractYear(datetimeIso) ?? new Date().getFullYear(), [datetimeIso])
 
   const annualProfile = useMemo(() => {
-    if (selectedRoofs.length === 0) {
+    if (!computationEnabled || selectedRoofs.length === 0) {
       return null
     }
 
@@ -90,7 +96,7 @@ export function AnualDayProfilePanel({ datetimeIso, timeZone, selectedRoofs }: A
         nonZeroBuckets: mergedPoints.length,
       },
     }
-  }, [selectedRoofs, selectedYear, timeZone])
+  }, [computationEnabled, selectedRoofs, selectedYear, timeZone])
 
   const chartData = useMemo<ChartData<'line'> | null>(() => {
     if (!annualProfile) {
@@ -169,6 +175,7 @@ export function AnualDayProfilePanel({ datetimeIso, timeZone, selectedRoofs }: A
   return (
     <section className="panel-section">
       <h3>Annual Day Profile</h3>
+      {!computationEnabled && <p>Production computation paused while editing geometry.</p>}
       {selectedRoofs.length === 0 && <p>Select one or more solved polygons to compute annual aggregation.</p>}
       {annualProfile && chartData && annualPeak && (
         <>

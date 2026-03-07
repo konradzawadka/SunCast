@@ -33,16 +33,17 @@ interface SunDailyChartPanelProps {
     kwp: number
     roofPlane: RoofPlane
   }>
+  computationEnabled?: boolean
 }
 
-export function SunDailyChartPanel({ dateIso, timeZone, selectedRoofs }: SunDailyChartPanelProps) {
+export function SunDailyChartPanel({ dateIso, timeZone, selectedRoofs, computationEnabled = true }: SunDailyChartPanelProps) {
   const totalSelectedKwp = useMemo(
     () => selectedRoofs.reduce((sum, roof) => sum + (Number.isFinite(roof.kwp) && roof.kwp > 0 ? roof.kwp : 0), 0),
     [selectedRoofs],
   )
 
   const aggregated = useMemo(() => {
-    if (!dateIso || selectedRoofs.length === 0 || totalSelectedKwp <= 0) {
+    if (!computationEnabled || !dateIso || selectedRoofs.length === 0 || totalSelectedKwp <= 0) {
       return null
     }
 
@@ -124,15 +125,15 @@ export function SunDailyChartPanel({ dateIso, timeZone, selectedRoofs }: SunDail
       peakProductionValue_kW: productionValues_kW[productionPeakIndex],
       peakProductionTimeLabel: labels[productionPeakIndex],
     }
-  }, [dateIso, selectedRoofs, timeZone, totalSelectedKwp])
+  }, [computationEnabled, dateIso, selectedRoofs, timeZone, totalSelectedKwp])
 
   const sunriseSunset = useMemo(() => {
-    if (!dateIso || selectedRoofs.length === 0) {
+    if (!computationEnabled || !dateIso || selectedRoofs.length === 0) {
       return null
     }
     const firstRoof = selectedRoofs[0]
     return getSunriseSunset({ dateIso, timeZone, latDeg: firstRoof.latDeg, lonDeg: firstRoof.lonDeg })
-  }, [dateIso, selectedRoofs, timeZone])
+  }, [computationEnabled, dateIso, selectedRoofs, timeZone])
 
   const chartData = useMemo<ChartData<'line'> | null>(() => {
     if (!aggregated) {
@@ -211,11 +212,16 @@ export function SunDailyChartPanel({ dateIso, timeZone, selectedRoofs }: SunDail
       <h3>Daily Production</h3>
 
       {!dateIso && <p>Select date/time above to compute sunrise, sunset, and production profile.</p>}
+      {!computationEnabled && <p>Production computation paused while editing geometry.</p>}
 
-      {dateIso && !sunriseSunset && <p data-testid="sun-daily-no-events">No sunrise/sunset for this date at this latitude.</p>}
+      {computationEnabled && dateIso && !sunriseSunset && (
+        <p data-testid="sun-daily-no-events">No sunrise/sunset for this date at this latitude.</p>
+      )}
 
 
-      {dateIso && selectedRoofs.length > 0 && totalSelectedKwp <= 0 && <p>Set kWp on selected polygons to compute production.</p>}
+      {computationEnabled && dateIso && selectedRoofs.length > 0 && totalSelectedKwp <= 0 && (
+        <p>Set kWp on selected polygons to compute production.</p>
+      )}
 
       {aggregated && chartData && (
         <>

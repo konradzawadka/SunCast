@@ -34,6 +34,7 @@ interface ForecastPvPanelProps {
   datetimeIso: string
   timeZone: string
   selectedRoofs: SelectedRoofSunInput[]
+  computationEnabled?: boolean
 }
 
 function extractDateIso(datetimeIso: string): string | null {
@@ -67,14 +68,19 @@ function toOpenMeteoTiltDeg(roofPitchDeg: number): number {
   return Math.max(0, Math.min(90, roofPitchDeg))
 }
 
-export function ForecastPvPanel({ datetimeIso, timeZone, selectedRoofs }: ForecastPvPanelProps) {
+export function ForecastPvPanel({
+  datetimeIso,
+  timeZone,
+  selectedRoofs,
+  computationEnabled = true,
+}: ForecastPvPanelProps) {
   const [isForecastLoading, setIsForecastLoading] = useState(false)
   const [forecastError, setForecastError] = useState<string | null>(null)
   const [forecastPoints, setForecastPoints] = useState<ForecastPoint[]>([])
 
   const selectedDateIso = useMemo(() => extractDateIso(datetimeIso), [datetimeIso])
   const selectedCount = selectedRoofs.length
-  const hasForecastInputs = selectedDateIso !== null && selectedCount > 0
+  const hasForecastInputs = computationEnabled && selectedDateIso !== null && selectedCount > 0
 
   useEffect(() => {
     if (!hasForecastInputs || !selectedDateIso || selectedRoofs.length === 0) {
@@ -230,7 +236,10 @@ export function ForecastPvPanel({ datetimeIso, timeZone, selectedRoofs }: Foreca
     <section className="panel-section">
       <h3>Estimated PV (Forecast)</h3>
       {!selectedDateIso && <p>Select datetime above to load irradiance forecast.</p>}
-      {selectedDateIso && !hasForecastInputs && <p>Select one or more solved polygons to load irradiance forecast.</p>}
+      {!computationEnabled && <p>Production computation paused while editing geometry.</p>}
+      {computationEnabled && selectedDateIso && !hasForecastInputs && (
+        <p>Select one or more solved polygons to load irradiance forecast.</p>
+      )}
       {selectedDateIso && hasForecastInputs && isForecastLoading && <p>Loading forecast data...</p>}
       {selectedDateIso && hasForecastInputs && forecastError && <p className="status-error">{forecastError}</p>}
       {selectedDateIso && hasForecastInputs && !isForecastLoading && !forecastError && forecastPoints.length === 0 && (

@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useReducer, useRef } from 'react'
 import type {
-  FaceConstraints,
   FootprintPolygon,
-  ProjectData,
   ProjectSunProjectionSettings,
-  StoredFootprint,
   VertexHeightConstraint,
 } from '../../types/geometry'
+import { sanitizeLoadedState } from './projectState.sanitize'
+import { readStorage, writeStorage } from './projectState.storage'
+import type { Action, FootprintStateEntry, ImportedFootprintEntry, ProjectState } from './projectState.types'
 
-const STORAGE_KEY = 'suncast_project'
 const SOLVER_CONFIG_VERSION = 'uc6'
 const DEFAULT_FOOTPRINT_KWP = 4.3
 const DEFAULT_SUN_PROJECTION: ProjectSunProjectionSettings = {
@@ -16,52 +15,6 @@ const DEFAULT_SUN_PROJECTION: ProjectSunProjectionSettings = {
   datetimeIso: null,
   dailyDateIso: null,
 }
-
-interface FootprintStateEntry {
-  footprint: FootprintPolygon
-  constraints: FaceConstraints
-}
-
-interface ImportedFootprintEntry {
-  footprintId: string
-  polygon: Array<[number, number]>
-  vertexHeights: VertexHeightConstraint[]
-}
-
-interface ProjectState {
-  footprints: Record<string, FootprintStateEntry>
-  activeFootprintId: string | null
-  selectedFootprintIds: string[]
-  drawDraft: Array<[number, number]>
-  isDrawing: boolean
-  sunProjection: ProjectSunProjectionSettings
-}
-
-type Action =
-  | { type: 'START_DRAW' }
-  | { type: 'CANCEL_DRAW' }
-  | { type: 'ADD_DRAFT_POINT'; point: [number, number] }
-  | { type: 'UNDO_DRAFT_POINT' }
-  | { type: 'COMMIT_FOOTPRINT' }
-  | { type: 'SET_ACTIVE_FOOTPRINT'; footprintId: string }
-  | { type: 'SELECT_ONLY_FOOTPRINT'; footprintId: string }
-  | { type: 'TOGGLE_FOOTPRINT_SELECTION'; footprintId: string }
-  | { type: 'SELECT_ALL_FOOTPRINTS' }
-  | { type: 'CLEAR_FOOTPRINT_SELECTION' }
-  | { type: 'DELETE_FOOTPRINT'; footprintId: string }
-  | { type: 'MOVE_VERTEX'; payload: { vertexIndex: number; point: [number, number] } }
-  | { type: 'MOVE_EDGE'; payload: { edgeIndex: number; delta: [number, number] } }
-  | { type: 'SET_VERTEX_HEIGHT'; payload: VertexHeightConstraint }
-  | { type: 'SET_VERTEX_HEIGHTS'; payload: VertexHeightConstraint[] }
-  | { type: 'SET_EDGE_HEIGHT'; payload: { edgeIndex: number; heightM: number } }
-  | { type: 'SET_ACTIVE_FOOTPRINT_KWP'; kwp: number }
-  | { type: 'CLEAR_VERTEX_HEIGHT'; vertexIndex: number }
-  | { type: 'CLEAR_EDGE_HEIGHT'; edgeIndex: number }
-  | { type: 'SET_SUN_PROJECTION_ENABLED'; enabled: boolean }
-  | { type: 'SET_SUN_PROJECTION_DATETIME'; datetimeIso: string | null }
-  | { type: 'SET_SUN_PROJECTION_DAILY_DATE'; dailyDateIso: string | null }
-  | { type: 'UPSERT_IMPORTED_FOOTPRINTS'; entries: ImportedFootprintEntry[] }
-  | { type: 'LOAD'; payload: ProjectState }
 
 const initialState: ProjectState = {
   footprints: {},
@@ -137,81 +90,6 @@ function removeFootprintAndPickActive(state: ProjectState, footprintId: string):
         ? (nextIds.at(-1) ?? null)
         : (state.activeFootprintId && nextFootprints[state.activeFootprintId] ? state.activeFootprintId : nextIds.at(-1) ?? null),
     selectedFootprintIds: state.selectedFootprintIds.filter((id) => id !== footprintId && nextFootprints[id]),
-  }
-}
-
-function fromStoredFootprint(stored: StoredFootprint): FootprintStateEntry {
-  const footprint: FootprintPolygon = {
-    id: stored.id,
-    vertices: stored.polygon,
-    kwp: Number.isFinite(stored.kwp) ? Math.max(0, stored.kwp as number) : DEFAULT_FOOTPRINT_KWP,
-  }
-
-  const vertexHeights = Object.entries(stored.vertexHeights)
-    .map(([vertexIndexRaw, heightM]) => ({
-      vertexIndex: Number(vertexIndexRaw),
-      heightM,
-    }))
-    .filter((c) => Number.isInteger(c.vertexIndex) && Number.isFinite(c.heightM))
-
-  return {
-    footprint,
-    constraints: {
-      vertexHeights: sanitizeVertexHeights(vertexHeights, footprint.vertices.length),
-    },
-  }
-}
-
-function toStoredFootprint(entry: FootprintStateEntry): StoredFootprint {
-  const vertexHeights: Record<string, number> = {}
-  for (const constraint of entry.constraints.vertexHeights) {
-    vertexHeights[String(constraint.vertexIndex)] = constraint.heightM
-  }
-
-  return {
-    id: entry.footprint.id,
-    polygon: entry.footprint.vertices,
-    vertexHeights,
-    kwp: Number.isFinite(entry.footprint.kwp) ? Math.max(0, entry.footprint.kwp) : DEFAULT_FOOTPRINT_KWP,
-  }
-}
-
-function sanitizeLoadedState(state: ProjectState): ProjectState {
-  const sanitized: Record<string, FootprintStateEntry> = {}
-
-  for (const [footprintId, entry] of Object.entries(state.footprints)) {
-    if (!entry.footprint || !Array.isArray(entry.footprint.vertices)) {
-      continue
-    }
-
-    const footprint: FootprintPolygon = {
-      id: entry.footprint.id || footprintId,
-      vertices: entry.footprint.vertices,
-      kwp: Number.isFinite(entry.footprint.kwp) ? Math.max(0, entry.footprint.kwp) : DEFAULT_FOOTPRINT_KWP,
-    }
-
-    sanitized[footprint.id] = {
-      footprint,
-      constraints: {
-        vertexHeights: sanitizeVertexHeights(entry.constraints.vertexHeights ?? [], footprint.vertices.length),
-      },
-    }
-  }
-
-  const ids = Object.keys(sanitized)
-  return {
-    ...state,
-    footprints: sanitized,
-    selectedFootprintIds: state.selectedFootprintIds.filter((id) => Boolean(sanitized[id])),
-    activeFootprintId:
-      state.activeFootprintId && sanitized[state.activeFootprintId]
-        ? state.activeFootprintId
-        : (ids.at(-1) ?? null),
-    sunProjection: {
-      enabled: state.sunProjection?.enabled ?? DEFAULT_SUN_PROJECTION.enabled,
-      datetimeIso: state.sunProjection?.datetimeIso ?? DEFAULT_SUN_PROJECTION.datetimeIso,
-      dailyDateIso: state.sunProjection?.dailyDateIso ?? DEFAULT_SUN_PROJECTION.dailyDateIso,
-    },
   }
 }
 
@@ -498,37 +376,10 @@ function reducer(state: ProjectState, action: Action): ProjectState {
       }
     }
     case 'LOAD':
-      return sanitizeLoadedState(action.payload)
+      return sanitizeLoadedState(action.payload, DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP)
     default:
       return state
   }
-}
-
-function readStorage(): ProjectState | null {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as ProjectData
-      const entries = Object.values(parsed.footprints ?? {})
-      const footprints = Object.fromEntries(entries.map((entry) => [entry.id, fromStoredFootprint(entry)]))
-
-      return {
-        footprints,
-        activeFootprintId: parsed.activeFootprintId ?? null,
-        selectedFootprintIds: [],
-        drawDraft: [],
-        isDrawing: false,
-        sunProjection: {
-          enabled: parsed.sunProjection?.enabled ?? DEFAULT_SUN_PROJECTION.enabled,
-          datetimeIso: parsed.sunProjection?.datetimeIso ?? DEFAULT_SUN_PROJECTION.datetimeIso,
-          dailyDateIso: parsed.sunProjection?.dailyDateIso ?? DEFAULT_SUN_PROJECTION.dailyDateIso,
-        },
-      }
-    } catch {
-      return null
-    }
-  }
-  return null
 }
 
 export function useProjectStore() {
@@ -537,7 +388,7 @@ export function useProjectStore() {
   const hasSkippedInitialPersist = useRef(false)
 
   useEffect(() => {
-    const stored = readStorage()
+    const stored = readStorage(DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP)
     if (stored) {
       dispatch({ type: 'LOAD', payload: stored })
     }
@@ -549,18 +400,15 @@ export function useProjectStore() {
       return
     }
 
-    const footprints = Object.fromEntries(
-      Object.entries(state.footprints).map(([id, entry]) => [id, toStoredFootprint(entry)]),
+    writeStorage(
+      {
+        footprints: state.footprints,
+        activeFootprintId: state.activeFootprintId,
+        sunProjection: state.sunProjection,
+      },
+      SOLVER_CONFIG_VERSION,
+      DEFAULT_FOOTPRINT_KWP,
     )
-
-    const data: ProjectData = {
-      footprints,
-      activeFootprintId: state.activeFootprintId,
-      solverConfigVersion: SOLVER_CONFIG_VERSION,
-      sunProjection: state.sunProjection,
-    }
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   }, [state.activeFootprintId, state.footprints, state.sunProjection])
 
   const activeEntry = state.activeFootprintId ? state.footprints[state.activeFootprintId] : null

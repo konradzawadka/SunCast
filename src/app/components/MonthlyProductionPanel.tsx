@@ -20,6 +20,7 @@ interface MonthlyProductionPanelProps {
   datetimeIso: string
   timeZone: string
   selectedRoofs: SelectedRoofSunInput[]
+  computationEnabled?: boolean
 }
 
 const MONTH_LABELS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
@@ -33,7 +34,12 @@ function extractYear(datetimeIso: string): number | null {
   return Number.isInteger(year) ? year : null
 }
 
-export function MonthlyProductionPanel({ datetimeIso, timeZone, selectedRoofs }: MonthlyProductionPanelProps) {
+export function MonthlyProductionPanel({
+  datetimeIso,
+  timeZone,
+  selectedRoofs,
+  computationEnabled = true,
+}: MonthlyProductionPanelProps) {
   const selectedYear = useMemo(() => extractYear(datetimeIso) ?? new Date().getFullYear(), [datetimeIso])
 
   const totalSelectedKwp = useMemo(
@@ -42,7 +48,7 @@ export function MonthlyProductionPanel({ datetimeIso, timeZone, selectedRoofs }:
   )
 
   const monthlyEnergyKwh = useMemo(() => {
-    if (selectedRoofs.length === 0) {
+    if (!computationEnabled || selectedRoofs.length === 0) {
       return null
     }
 
@@ -75,7 +81,7 @@ export function MonthlyProductionPanel({ datetimeIso, timeZone, selectedRoofs }:
     }
 
     return hasData ? totals : null
-  }, [selectedRoofs, selectedYear, timeZone])
+  }, [computationEnabled, selectedRoofs, selectedYear, timeZone])
 
   const chartData = useMemo<ChartData<'bar'> | null>(() => {
     if (!monthlyEnergyKwh) {
@@ -138,8 +144,11 @@ export function MonthlyProductionPanel({ datetimeIso, timeZone, selectedRoofs }:
   return (
     <section className="panel-section">
       <h3>Monthly Production</h3>
+      {!computationEnabled && <p>Production computation paused while editing geometry.</p>}
       {selectedRoofs.length === 0 && <p>Select one or more solved polygons to compute monthly production.</p>}
-      {selectedRoofs.length > 0 && totalSelectedKwp <= 0 && <p>Set kWp on selected polygons to compute production.</p>}
+      {computationEnabled && selectedRoofs.length > 0 && totalSelectedKwp <= 0 && (
+        <p>Set kWp on selected polygons to compute production.</p>
+      )}
       {chartData && monthlyEnergyKwh && (
         <>
           <div className="sun-daily-chart" data-testid="sun-monthly-chart">

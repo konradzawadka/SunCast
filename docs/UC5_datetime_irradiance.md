@@ -110,4 +110,3 @@
   * set datetime ⇒ POA text appears
   * change datetime ⇒ POA text changes 
 
-Your best advisor Jacuś.

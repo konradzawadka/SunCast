@@ -34,6 +34,7 @@ export function SunCastScreen() {
   const [mapPitchDeg, setMapPitchDeg] = useState(0)
   const [tutorialKwpEdited, setTutorialKwpEdited] = useState(false)
   const [tutorialDatetimeEdited, setTutorialDatetimeEdited] = useState(false)
+  const [isGeometryDragActive, setIsGeometryDragActive] = useState(false)
 
   const {
     state,
@@ -157,6 +158,9 @@ export function SunCastScreen() {
     },
     [clearInteractionError, selectEdgeIndex],
   )
+
+  const productionComputationEnabled =
+    !isGeometryDragActive && safeSelectedVertexIndex === null && safeSelectedEdgeIndex === null
 
   const {
     sunDatetimeRaw,
@@ -312,6 +316,8 @@ export function SunCastScreen() {
         onMapClick={addDraftPoint}
         onBearingChange={setMapBearingDeg}
         onPitchChange={setMapPitchDeg}
+        onGeometryDragStateChange={setIsGeometryDragActive}
+        productionComputationEnabled={productionComputationEnabled}
         onInitialized={() => setMapInitialized(true)}
         onToggleSunProjectionEnabled={setSunProjectionEnabled}
         onSunDatetimeInputChange={(datetimeIsoRaw) => {

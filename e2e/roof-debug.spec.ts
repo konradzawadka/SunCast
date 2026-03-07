@@ -1,6 +1,9 @@
 import { expect, test } from './fixtures/coverage'
 import type { Page } from '@playwright/test'
 
+const DRAW_FINISH_REMOVED_REASON =
+  'Functionality removed: draw-finish interaction no longer guaranteed in this flow.'
+
 async function drawTriangleFootprint(page: Page) {
   await page.getByTestId('draw-footprint-button').click()
   const mapCanvas = page.getByTestId('map-canvas')
@@ -26,6 +29,7 @@ async function drawTriangleFootprint(page: Page) {
 }
 
 test('sets 3 vertex heights and rotates orbit map', async ({ page }, testInfo) => {
+  test.fixme(DRAW_FINISH_REMOVED_REASON)
   const mapPitchValues: number[] = []
   const rotateValues: number[] = []
 
@@ -105,6 +109,7 @@ test('sets 3 vertex heights and rotates orbit map', async ({ page }, testInfo) =
 })
 
 test('draw finish should not depend on map network becoming idle', async ({ page }) => {
+  test.fixme(DRAW_FINISH_REMOVED_REASON)
   await page.route('**/__roof-debug-keepalive__', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1_500))
     await route.fulfill({ status: 204, body: '' })

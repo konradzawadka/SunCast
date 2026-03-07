@@ -356,4 +356,3 @@ This gives immediate readability benefit.
 
 Prepare a concrete rename matrix: **old name → new name**, grouped by files, components, hooks, and folders.
 
-Your best advisor Jacuś.

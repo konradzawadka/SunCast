@@ -21,6 +21,7 @@ interface SunOverlayColumnProps {
   timeZone: string
   selectedRoofs: SelectedRoofSunInput[]
   onDatetimeInputChange: (datetimeIsoRaw: string) => void
+  productionComputationEnabled: boolean
   expanded?: boolean
 }
 
@@ -30,6 +31,7 @@ export function SunOverlayColumn({
   timeZone,
   selectedRoofs,
   onDatetimeInputChange,
+  productionComputationEnabled,
   expanded,
 }: SunOverlayColumnProps) {
   const [collapsed, setCollapsed] = useState(true)
@@ -54,10 +56,25 @@ export function SunOverlayColumn({
       {!collapsed && (
         <div className="sun-overlay-content">
           <SunDateTimePanel datetimeIso={datetimeIso} timeZone={timeZone} onDatetimeInputChange={onDatetimeInputChange} />
-          <ForecastPvPanel datetimeIso={datetimeIso} timeZone={timeZone} selectedRoofs={selectedRoofs} />
+          <ForecastPvPanel
+            datetimeIso={datetimeIso}
+            timeZone={timeZone}
+            selectedRoofs={selectedRoofs}
+            computationEnabled={productionComputationEnabled}
+          />
           {children}
-          <MonthlyProductionPanel datetimeIso={datetimeIso} timeZone={timeZone} selectedRoofs={selectedRoofs} />
-          <AnualDayProfilePanel datetimeIso={datetimeIso} timeZone={timeZone} selectedRoofs={selectedRoofs} />
+          <MonthlyProductionPanel
+            datetimeIso={datetimeIso}
+            timeZone={timeZone}
+            selectedRoofs={selectedRoofs}
+            computationEnabled={productionComputationEnabled}
+          />
+          <AnualDayProfilePanel
+            datetimeIso={datetimeIso}
+            timeZone={timeZone}
+            selectedRoofs={selectedRoofs}
+            computationEnabled={productionComputationEnabled}
+          />
         </div>
       )}
     </aside>

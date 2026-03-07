@@ -160,4 +160,3 @@ User can:
    * > 100
      > (affects storage and rendering strategy)
 
-Your best advisor Jacuś.

@@ -38,6 +38,8 @@ interface SunCastCanvasProps {
   onMapClick: (point: [number, number]) => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
+  onGeometryDragStateChange: (dragging: boolean) => void
+  productionComputationEnabled: boolean
   onInitialized: () => void
   onToggleSunProjectionEnabled: (enabled: boolean) => void
   onSunDatetimeInputChange: (datetimeIsoRaw: string) => void
@@ -76,6 +78,8 @@ export function SunCastCanvas({
   onMapClick,
   onBearingChange,
   onPitchChange,
+  onGeometryDragStateChange,
+  productionComputationEnabled,
   onInitialized,
   onToggleSunProjectionEnabled,
   onSunDatetimeInputChange,
@@ -106,6 +110,7 @@ export function SunCastCanvas({
         onMapClick={onMapClick}
         onBearingChange={onBearingChange}
         onPitchChange={onPitchChange}
+        onGeometryDragStateChange={onGeometryDragStateChange}
         onInitialized={onInitialized}
       />
 
@@ -114,6 +119,7 @@ export function SunCastCanvas({
         timeZone={sunDailyTimeZone}
         selectedRoofs={selectedRoofInputs}
         onDatetimeInputChange={onSunDatetimeInputChange}
+        productionComputationEnabled={productionComputationEnabled}
         expanded={hasSolvedActiveRoof && !isDrawing}
       >
         {hasSolvedActiveRoof ? (
@@ -129,6 +135,7 @@ export function SunCastCanvas({
               dateIso={sunDailyDateRaw}
               timeZone={sunDailyTimeZone}
               selectedRoofs={selectedRoofInputs}
+              computationEnabled={productionComputationEnabled}
             />
           </>
         ) : (

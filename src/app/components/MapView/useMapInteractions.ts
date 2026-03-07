@@ -38,6 +38,7 @@ interface MapInteractionRefs {
   onMoveRejectedRef: RefObject<() => void>
   onBearingChangeRef: RefObject<(bearingDeg: number) => void>
   onPitchChangeRef: RefObject<(pitchDeg: number) => void>
+  onGeometryDragStateChangeRef: RefObject<(dragging: boolean) => void>
 }
 
 interface UseMapInteractionsArgs {
@@ -148,6 +149,7 @@ export function useMapInteractions({ mapRef, mapLoaded, refs }: UseMapInteractio
       if (dragState.invalidAttempted) {
         refs.onMoveRejectedRef.current()
       }
+      refs.onGeometryDragStateChangeRef.current(false)
     }
 
     const handleClick = (event: maplibregl.MapMouseEvent & { originalEvent: MouseEvent }) => {
@@ -198,6 +200,7 @@ export function useMapInteractions({ mapRef, mapLoaded, refs }: UseMapInteractio
           lastLngLat: [event.lngLat.lng, event.lngLat.lat],
           invalidAttempted: false,
         }
+        refs.onGeometryDragStateChangeRef.current(true)
         map.dragPan.disable()
         map.getCanvas().style.cursor = 'grabbing'
         return
@@ -214,6 +217,7 @@ export function useMapInteractions({ mapRef, mapLoaded, refs }: UseMapInteractio
         lastLngLat: [event.lngLat.lng, event.lngLat.lat],
         invalidAttempted: false,
       }
+      refs.onGeometryDragStateChangeRef.current(true)
       map.dragPan.disable()
       map.getCanvas().style.cursor = 'grabbing'
     }
@@ -251,6 +255,7 @@ export function useMapInteractions({ mapRef, mapLoaded, refs }: UseMapInteractio
       map.off('rotate', emitBearing)
       map.off('pitch', emitPitch)
       setHoveredEdgeLength(null)
+      refs.onGeometryDragStateChangeRef.current(false)
     }
   }, [mapLoaded, mapRef, refs])
 

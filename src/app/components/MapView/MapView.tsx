@@ -31,6 +31,7 @@ interface MapViewProps {
   onMapClick: (point: [number, number]) => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
+  onGeometryDragStateChange: (dragging: boolean) => void
   onInitialized?: () => void
 }
 
@@ -58,6 +59,7 @@ export function MapView({
   onMapClick,
   onBearingChange,
   onPitchChange,
+  onGeometryDragStateChange,
   onInitialized,
 }: MapViewProps) {
   const [meshesVisible, setMeshesVisible] = useState(false)
@@ -75,6 +77,7 @@ export function MapView({
   const onMoveRejectedRef = useLatest(onMoveRejected)
   const onBearingChangeRef = useLatest(onBearingChange)
   const onPitchChangeRef = useLatest(onPitchChange)
+  const onGeometryDragStateChangeRef = useLatest(onGeometryDragStateChange)
   const interactionRefs = useMemo(
     () => ({
       drawingRef,
@@ -90,6 +93,7 @@ export function MapView({
       onMoveRejectedRef,
       onBearingChangeRef,
       onPitchChangeRef,
+      onGeometryDragStateChangeRef,
     }),
     [
       activeFootprintRef,
@@ -105,6 +109,7 @@ export function MapView({
       onSelectFootprintRef,
       onSelectVertexRef,
       orbitEnabledRef,
+      onGeometryDragStateChangeRef,
     ],
   )
 
