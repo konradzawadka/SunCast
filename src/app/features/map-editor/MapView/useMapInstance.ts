@@ -34,7 +34,7 @@ export function useMapInstance({ onInitialized }: UseMapInstanceArgs): UseMapIns
         antialias: true,
       },
       style: createMapStyle(),
-      center: [-73.989, 40.733],
+      center: [20.8094, 52.1677],
       zoom: 18,
       pitch: 0,
       bearing: 0,
