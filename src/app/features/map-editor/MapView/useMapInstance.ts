@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl'
 import { RoofMeshLayer } from '../../../../rendering/roof-layer/RoofMeshLayer'
 import { MAX_ORBIT_PITCH_DEG } from './mapViewConstants'
 import { createMapStyle } from './createMapStyle'
+import { parseMapCenterFromHash } from './mapCenterFromHash'
 import { useLatest } from './useLatest'
 
 interface UseMapInstanceArgs {
@@ -28,13 +29,15 @@ export function useMapInstance({ onInitialized }: UseMapInstanceArgs): UseMapIns
       return
     }
 
+    const initialCenter = parseMapCenterFromHash(window.location.hash) ?? [20.8094, 52.1677]
+
     const map = new maplibregl.Map({
       container: containerRef.current,
       canvasContextAttributes: {
         antialias: true,
       },
       style: createMapStyle(),
-      center: [20.8094, 52.1677],
+      center: initialCenter,
       zoom: 18,
       pitch: 0,
       bearing: 0,

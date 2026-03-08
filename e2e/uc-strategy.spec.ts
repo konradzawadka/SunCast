@@ -160,6 +160,13 @@ async function readStoredProject(page: Page): Promise<StoredProject> {
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.clear()
+    window.localStorage.setItem(
+      'suncast_uc12_tutorial_state',
+      JSON.stringify({
+        completedSteps: 6,
+        tutorialEnabled: false,
+      }),
+    )
   })
 })
 

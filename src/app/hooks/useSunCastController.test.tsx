@@ -106,7 +106,7 @@ function makeState(): ProjectState {
           kwp: 4,
         },
         constraints: { vertexHeights: [] },
-        pitchAdjustmentPercent: 0,
+        pitchAdjustmentPercent: 10,
       },
       b: {
         footprint: {
@@ -192,6 +192,7 @@ describe('useSunCastController', () => {
     expect(hook.get().canvasModel.selectedRoofInputs).toHaveLength(1)
     expect(hook.get().canvasModel.selectedRoofInputs[0].footprintId).toBe('a')
     expect(hook.get().canvasModel.selectedRoofInputs[0].kwp).toBe(4)
+    expect(hook.get().canvasModel.selectedRoofInputs[0].roofPitchDeg).toBeCloseTo(23.1, 6)
     hook.unmount()
   })
 

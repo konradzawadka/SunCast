@@ -230,7 +230,8 @@ export function useSunCastController(): {
         lonDeg: centroid[0],
         latDeg: centroid[1],
         kwp: footprintEntry.footprint.kwp,
-        roofPitchDeg: solvedEntry.metrics.pitchDeg,
+        roofPitchDeg:
+          solvedEntry.metrics.pitchDeg * (1 + clampPitchAdjustmentPercent(footprintEntry.pitchAdjustmentPercent) / 100),
         roofAzimuthDeg: solvedEntry.metrics.azimuthDeg,
         roofPlane: solvedEntry.solution.plane,
       })
