@@ -37,6 +37,8 @@ export function SunCastCanvas({ model }: SunCastCanvasProps) {
         onBearingChange={model.onBearingChange}
         onPitchChange={model.onPitchChange}
         onGeometryDragStateChange={model.onGeometryDragStateChange}
+        mapNavigationTarget={model.mapNavigationTarget}
+        onPlaceSearchSelect={model.onPlaceSearchSelect}
         onInitialized={model.onInitialized}
       />
 

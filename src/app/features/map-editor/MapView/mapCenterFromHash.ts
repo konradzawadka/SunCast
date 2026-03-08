@@ -31,3 +31,15 @@ export function parseMapCenterFromHash(hash: string): MapCenter | null {
   return [lon, lat]
 }
 
+function formatCoord(value: number): string {
+  return value.toFixed(6)
+}
+
+export function buildHashWithMapCenter(hash: string, center: MapCenter): string {
+  const normalized = hash.startsWith('#') ? hash.slice(1) : hash
+  const params = new URLSearchParams(normalized)
+  const [lon, lat] = center
+  params.set('lat', formatCoord(lat))
+  params.set('lon', formatCoord(lon))
+  return `#${params.toString()}`
+}

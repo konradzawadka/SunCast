@@ -1,5 +1,7 @@
 import { HEIGHT_STEP_M, HEIGHT_STEP_SHIFT_M } from './mapViewConstants'
 import type { DrawingAngleHint, HoveredEdgeLength } from './useMapInteractions'
+import { PlaceSearchPanel } from '../../place-search/PlaceSearchPanel'
+import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 
 interface MapOverlayControlsProps {
   orbitEnabled: boolean
@@ -18,6 +20,7 @@ interface MapOverlayControlsProps {
   onAdjustHeight: (stepM: number) => void
   showSolveHint: boolean
   onAdjustOrbitCamera: (bearingDeltaDeg: number, pitchDeltaDeg: number) => void
+  onPlaceSearchSelect: (result: PlaceSearchResult) => void
 }
 
 export function MapOverlayControls({
@@ -37,9 +40,13 @@ export function MapOverlayControls({
   onAdjustHeight,
   showSolveHint,
   onAdjustOrbitCamera,
+  onPlaceSearchSelect,
 }: MapOverlayControlsProps) {
   return (
     <>
+      <div className="map-place-search">
+        <PlaceSearchPanel onSelectResult={onPlaceSearchSelect} />
+      </div>
       <button type="button" className="map-orbit-toggle" onClick={onToggleOrbit} data-testid="orbit-toggle-button">
         {orbitEnabled ? 'Exit orbit' : 'Orbit'}
       </button>

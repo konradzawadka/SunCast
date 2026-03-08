@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FootprintPolygon, RoofMeshData, VertexHeightConstraint } from '../../../../types/geometry'
 import type { SunProjectionResult } from '../../../../geometry/sun/sunProjection'
 import { MapOverlayControls } from './MapOverlayControls'
+import { buildHashWithMapCenter } from './mapCenterFromHash'
 import { useLatest } from './useLatest'
 import { useMapInstance } from './useMapInstance'
 import { useMapInteractions } from './useMapInteractions'
 import { useMapSources } from './useMapSources'
 import { useOrbitCamera } from './useOrbitCamera'
+import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 
 interface MapViewProps {
   footprints: FootprintPolygon[]
@@ -34,6 +36,12 @@ interface MapViewProps {
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
   onGeometryDragStateChange: (dragging: boolean) => void
+  mapNavigationTarget: {
+    id: number
+    lon: number
+    lat: number
+  } | null
+  onPlaceSearchSelect: (result: PlaceSearchResult) => void
   onInitialized?: () => void
 }
 
@@ -63,6 +71,8 @@ export function MapView({
   onBearingChange,
   onPitchChange,
   onGeometryDragStateChange,
+  mapNavigationTarget,
+  onPlaceSearchSelect,
   onInitialized,
 }: MapViewProps) {
   const [meshesVisible, setMeshesVisible] = useState(false)
@@ -175,6 +185,27 @@ export function MapView({
     setOrbitCameraPose(normalizedBearingDeg, pitchDeg)
   }, [orbitEnabled, setOrbitCameraPose, sunPerspectiveEnabled, sunProjectionResult])
 
+  useEffect(() => {
+    if (!mapLoaded || !mapNavigationTarget) {
+      return
+    }
+
+    const map = mapRef.current
+    if (!map) {
+      return
+    }
+
+    const center: [number, number] = [mapNavigationTarget.lon, mapNavigationTarget.lat]
+    map.flyTo({
+      center,
+      zoom: Math.max(map.getZoom(), 18),
+      essential: true,
+    })
+
+    const nextHash = buildHashWithMapCenter(window.location.hash, center)
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`)
+  }, [mapLoaded, mapNavigationTarget, mapRef])
+
   return (
     <div className="map-root-wrap">
       <div ref={containerRef} className="map-root" data-testid="map-canvas" />
@@ -195,6 +226,7 @@ export function MapView({
         onAdjustHeight={onAdjustHeight}
         showSolveHint={showSolveHint}
         onAdjustOrbitCamera={adjustOrbitCamera}
+        onPlaceSearchSelect={onPlaceSearchSelect}
       />
     </div>
   )

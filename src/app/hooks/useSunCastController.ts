@@ -13,6 +13,7 @@ import type { SelectedRoofSunInput } from '../features/sun-tools/SunOverlayColum
 import type { ImportedFootprintConfigEntry } from '../features/debug/DevTools'
 import { buildSharePayload, serializeSharePayload } from '../../state/project-store/projectState.share'
 import { encodeSharePayload } from '../../shared/utils/shareCodec'
+import type { PlaceSearchResult } from '../features/place-search/placeSearch.types'
 
 const MAX_SHARE_URL_LENGTH = 3500
 const MIN_PITCH_ADJUSTMENT_PERCENT = -90
@@ -97,6 +98,12 @@ export interface SunCastCanvasModel {
   sunDailyTimeZone: string
   selectedRoofInputs: SelectedRoofSunInput[]
   hasSolvedActiveRoof: boolean
+  mapNavigationTarget: {
+    id: number
+    lon: number
+    lat: number
+  } | null
+  onPlaceSearchSelect: (result: PlaceSearchResult) => void
   onToggleOrbit: () => void
   onSelectVertex: (vertexIndex: number) => void
   onSelectEdge: (edgeIndex: number) => void
@@ -153,8 +160,14 @@ export function useSunCastController(): {
   const [tutorialKwpEdited, setTutorialKwpEdited] = useState(false)
   const [tutorialDatetimeEdited, setTutorialDatetimeEdited] = useState(false)
   const [isGeometryDragActive, setIsGeometryDragActive] = useState(false)
+  const [mapNavigationTarget, setMapNavigationTarget] = useState<{
+    id: number
+    lon: number
+    lat: number
+  } | null>(null)
   const [shareError, setShareError] = useState<string | null>(null)
   const [shareSuccess, setShareSuccess] = useState<string | null>(null)
+  const mapNavigationIdRef = useRef(0)
   const tutorialStartRef = useRef<() => void>(() => {})
 
   const {
@@ -481,6 +494,15 @@ export function useSunCastController(): {
     sunDailyTimeZone,
     selectedRoofInputs,
     hasSolvedActiveRoof: Boolean(solved.activeSolved),
+    mapNavigationTarget,
+    onPlaceSearchSelect: (result) => {
+      mapNavigationIdRef.current += 1
+      setMapNavigationTarget({
+        id: mapNavigationIdRef.current,
+        lat: result.lat,
+        lon: result.lon,
+      })
+    },
     onToggleOrbit: () => setOrbitEnabled((enabled) => !enabled),
     onSelectVertex: (vertexIndex) => {
       selectVertex(vertexIndex)

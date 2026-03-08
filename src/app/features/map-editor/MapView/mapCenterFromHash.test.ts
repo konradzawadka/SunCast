@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseMapCenterFromHash } from './mapCenterFromHash'
+import { buildHashWithMapCenter, parseMapCenterFromHash } from './mapCenterFromHash'
 
 describe('parseMapCenterFromHash', () => {
   it('parses #lat and #lon hash params into [lon, lat]', () => {
@@ -26,3 +26,10 @@ describe('parseMapCenterFromHash', () => {
   })
 })
 
+describe('buildHashWithMapCenter', () => {
+  it('sets lat/lon while preserving existing params', () => {
+    expect(buildHashWithMapCenter('#c=abc&foo=bar', [21.0122, 52.2297])).toBe(
+      '#c=abc&foo=bar&lat=52.229700&lon=21.012200',
+    )
+  })
+})
