@@ -128,6 +128,34 @@ describe('useMapInteractions', () => {
     hook.unmount()
   })
 
+  it('disables right-angle snap while shift is pressed during draw click', () => {
+    const { handlers, map } = createMapMock()
+    const onMapClick = vi.fn()
+    const refs = createRefs({
+      drawingRef: { current: true },
+      drawDraftRef: { current: [[0, 0], [0.001, 0]] as Array<[number, number]> },
+      onMapClickRef: { current: onMapClick },
+    })
+    const mapRef = createRef<any>()
+    mapRef.current = map
+
+    const hook = renderInteractions({ mapRef, mapLoaded: true, refs })
+
+    act(() => {
+      handlers.click({
+        point: { x: 40, y: 50 },
+        lngLat: { lng: 0.00105, lat: 0.0003 },
+        originalEvent: new MouseEvent('click', { shiftKey: true }),
+      })
+    })
+
+    expect(onMapClick).toHaveBeenCalledTimes(1)
+    const unsnapped = onMapClick.mock.calls[0][0] as [number, number]
+    expect(unsnapped[0]).toBeCloseTo(0.00105, 6)
+    expect(unsnapped[1]).toBeCloseTo(0.0003, 6)
+    hook.unmount()
+  })
+
   it('uses resize cursor on editable edge hover', () => {
     const hitFeatures = [{ layer: { id: 'active-footprint-edge-hit' }, properties: { edgeIndex: 0 } }]
     const { handlers, map } = createMapMock(hitFeatures)

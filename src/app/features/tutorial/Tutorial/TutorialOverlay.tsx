@@ -139,7 +139,7 @@ export function TutorialOverlay({
           Step {stepIndex + 1}/{stepCount}
         </p>
         <h3>{step.title}</h3>
-        <p>{step.description}</p>
+        <p className="tutorial-description">{step.description}</p>
         <div className="tutorial-actions">
           <button type="button" onClick={onSkip}>
             Skip tutorial

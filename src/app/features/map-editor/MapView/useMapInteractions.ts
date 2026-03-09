@@ -101,8 +101,8 @@ export function useMapInteractions({
       return
     }
 
-    const getDrawPoint = (drawDraft: Array<[number, number]>, rawPoint: [number, number]) => {
-      const snapped = snapDrawPointToRightAngle(drawDraft, rawPoint)
+    const getDrawPoint = (drawDraft: Array<[number, number]>, rawPoint: [number, number], disableSnap: boolean) => {
+      const snapped = snapDrawPointToRightAngle(drawDraft, rawPoint, { snapEnabled: !disableSnap })
       if (drawDraft.length < 1 || constrainedDrawLengthM === null) {
         return snapped
       }
@@ -116,7 +116,8 @@ export function useMapInteractions({
       if (refs.drawingRef.current && !refs.orbitEnabledRef.current) {
         const drawDraft = refs.drawDraftRef.current
         if (drawDraft.length >= 1) {
-          const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat])
+          const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
+          const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap)
           const lengthM = segmentLengthMeters(drawDraft[drawDraft.length - 1], snapped.point)
           const secondPointPreview = drawDraft.length === 1
           const azimuthDeg = secondPointPreview ? segmentAzimuthDeg(drawDraft[0], snapped.point) : null
@@ -244,7 +245,8 @@ export function useMapInteractions({
     const handleClick = (event: maplibregl.MapMouseEvent & { originalEvent: MouseEvent }) => {
       if (refs.drawingRef.current) {
         const drawDraft = refs.drawDraftRef.current
-        const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat])
+        const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
+        const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap)
         refs.onMapClickRef.current(snapped.point)
         return
       }

@@ -1,15 +1,32 @@
+import { useEffect, useState } from 'react'
 import { DrawTools } from '../features/map-editor/DrawTools/DrawTools'
 import { FootprintPanel } from '../components/FootprintPanel'
 import { RoofEditor } from '../components/RoofEditor/RoofEditor'
 import { StatusPanel } from '../components/StatusPanel'
 import type { SunCastSidebarModel } from '../hooks/useSunCastController'
 import { DevTools } from '../features/debug/DevTools'
+import { TutorialIntroOverlay } from '../features/tutorial/Tutorial/TutorialIntroOverlay'
 
 interface SunCastSidebarProps {
   model: SunCastSidebarModel
 }
 
 export function SunCastSidebar({ model }: SunCastSidebarProps) {
+  const [tutorialIntroVisible, setTutorialIntroVisible] = useState(false)
+
+  useEffect(() => {
+    if (!tutorialIntroVisible) {
+      return
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setTutorialIntroVisible(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [tutorialIntroVisible])
+
   return (
     <aside className="sun-cast-sidebar">
       <div className="sun-cast-sidebar-title-row">
@@ -17,7 +34,7 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
         <button
           type="button"
           className="sun-cast-tutorial-trigger"
-          onClick={model.onStartTutorial}
+          onClick={() => setTutorialIntroVisible(true)}
           aria-label="Start tutorial"
           title="Start tutorial"
           data-testid="start-tutorial-button"
@@ -25,6 +42,15 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
           ?
         </button>
       </div>
+      {tutorialIntroVisible && (
+        <TutorialIntroOverlay
+          onStartInteractiveTutorial={() => {
+            setTutorialIntroVisible(false)
+            model.onStartTutorial()
+          }}
+          onClose={() => setTutorialIntroVisible(false)}
+        />
+      )}
       <p className="subtitle">Draw your roof and get short-term and long-term production forecasts.</p>
       {model.shareError && <p className="status-error">{model.shareError}</p>}
       {!model.shareError && model.shareSuccess && <p className="status-success">{model.shareSuccess}</p>}

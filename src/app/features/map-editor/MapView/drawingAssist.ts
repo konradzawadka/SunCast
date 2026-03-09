@@ -74,6 +74,7 @@ export function pointAtDistanceMeters(start: [number, number], toward: [number, 
 export function snapDrawPointToRightAngle(
   drawDraft: Array<[number, number]>,
   rawPoint: [number, number],
+  options?: { snapEnabled?: boolean },
 ): RightAngleSnapResult {
   if (drawDraft.length < 2) {
     return { point: rawPoint, snapped: false, angleDeg: 0 }
@@ -89,6 +90,9 @@ export function snapDrawPointToRightAngle(
   const vPrev = { x: end.x - prev.x, y: end.y - prev.y }
   const vNext = { x: cursor.x - end.x, y: cursor.y - end.y }
   const angleDeg = angleBetweenDeg(vPrev, vNext)
+  if (options?.snapEnabled === false) {
+    return { point: rawPoint, snapped: false, angleDeg }
+  }
   const distanceToRightAngle = Math.abs(angleDeg - 90)
   if (distanceToRightAngle > RIGHT_ANGLE_SNAP_THRESHOLD_DEG) {
     return { point: rawPoint, snapped: false, angleDeg }
