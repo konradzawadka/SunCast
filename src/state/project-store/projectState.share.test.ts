@@ -43,17 +43,41 @@ describe('projectState.share', () => {
     expect(loaded.footprints.fp1.footprint.kwp).toBe(6)
     expect(loaded.footprints.fp1.constraints.vertexHeights).toEqual([{ vertexIndex: 1, heightM: 3.2 }])
     expect(loaded.footprints.fp1.pitchAdjustmentPercent).toBe(12)
+    expect(payload.schemaVersion).toBe(2)
   })
 
   it('rejects invalid payload schema', () => {
     expect(
       validateSharePayload({
-        version: 1,
+        schemaVersion: 2,
         footprints: [{ id: 'fp1', polygon: [], vertexHeights: {}, kwp: 5 }],
         activeFootprintId: 'fp1',
       }),
     ).toBe(false)
 
     expect(() => deserializeSharePayload('{"version":2}', DEFAULT_SUN, DEFAULT_KWP)).toThrow('Invalid share payload')
+  })
+
+  it('migrates legacy v1 payload into current schema', () => {
+    const legacy = JSON.stringify({
+      version: 1,
+      footprints: [
+        {
+          id: 'legacy',
+          polygon: [
+            [1, 1],
+            [2, 1],
+            [2, 2],
+          ],
+          vertexHeights: { '2': 4.1 },
+          kwp: 7,
+        },
+      ],
+      activeFootprintId: 'legacy',
+    })
+
+    const loaded = deserializeSharePayload(legacy, DEFAULT_SUN, DEFAULT_KWP)
+    expect(loaded.activeFootprintId).toBe('legacy')
+    expect(loaded.footprints.legacy.constraints.vertexHeights).toEqual([{ vertexIndex: 2, heightM: 4.1 }])
   })
 })

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { captureException } from '../../shared/observability/observability'
 
 interface AppErrorBoundaryProps {
   children: ReactNode
@@ -19,6 +20,10 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('SunCast runtime error', error, errorInfo)
+    captureException(error, {
+      area: 'app-error-boundary',
+      componentStack: errorInfo.componentStack,
+    })
   }
 
   render() {

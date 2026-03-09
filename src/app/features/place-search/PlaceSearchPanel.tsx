@@ -18,7 +18,6 @@ export function PlaceSearchPanel({ onSelectResult }: PlaceSearchPanelProps) {
 
   return (
     <section className="panel-section" data-testid="place-search-panel">
-      <p className="panel-hint">Tip: Enter at least 3 characters to search places.</p>
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}

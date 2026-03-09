@@ -3,6 +3,8 @@ import { fromStoredFootprint } from './projectState.mappers'
 import { sanitizeLoadedState } from './projectState.sanitize'
 import type { ProjectState } from './projectState.types'
 
+const CURRENT_SHARE_SCHEMA_VERSION = 2
+
 export interface SharedFootprintPayload {
   id: string
   polygon: Array<[number, number]>
@@ -11,7 +13,7 @@ export interface SharedFootprintPayload {
   pitchAdjustmentPercent?: number
 }
 
-export interface SharedProjectPayload {
+export interface SharedProjectPayloadV1 {
   version: 1
   footprints: SharedFootprintPayload[]
   activeFootprintId: string | null
@@ -22,6 +24,19 @@ export interface SharedProjectPayload {
   }
 }
 
+export interface SharedProjectPayloadV2 {
+  schemaVersion: 2
+  footprints: SharedFootprintPayload[]
+  activeFootprintId: string | null
+  sunProjection?: {
+    enabled: boolean
+    datetimeIso: string | null
+    dailyDateIso: string | null
+  }
+}
+
+export type SharedProjectPayload = SharedProjectPayloadV2
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -30,7 +45,7 @@ export function buildSharePayload(
   state: Pick<ProjectState, 'footprints' | 'activeFootprintId' | 'sunProjection'>,
 ): SharedProjectPayload {
   return {
-    version: 1,
+    schemaVersion: CURRENT_SHARE_SCHEMA_VERSION,
     footprints: Object.values(state.footprints).map((entry) => {
       const vertexHeights: Record<string, number> = {}
       for (const constraint of entry.constraints.vertexHeights) {
@@ -54,8 +69,8 @@ export function serializeSharePayload(payload: SharedProjectPayload): string {
   return JSON.stringify(payload)
 }
 
-export function validateSharePayload(value: unknown): value is SharedProjectPayload {
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.footprints)) {
+function hasValidCommonShape(value: Record<string, unknown>): boolean {
+  if (!Array.isArray(value.footprints)) {
     return false
   }
 
@@ -116,18 +131,45 @@ export function validateSharePayload(value: unknown): value is SharedProjectPayl
   return true
 }
 
+function migrateSharePayload(value: unknown): SharedProjectPayloadV2 | null {
+  if (!isRecord(value) || !hasValidCommonShape(value)) {
+    return null
+  }
+
+  if (value.schemaVersion === CURRENT_SHARE_SCHEMA_VERSION) {
+    return value as unknown as SharedProjectPayloadV2
+  }
+
+  if (value.version === 1) {
+    const legacy = value as unknown as SharedProjectPayloadV1
+    return {
+      schemaVersion: CURRENT_SHARE_SCHEMA_VERSION,
+      footprints: legacy.footprints,
+      activeFootprintId: legacy.activeFootprintId,
+      sunProjection: legacy.sunProjection,
+    }
+  }
+
+  return null
+}
+
+export function validateSharePayload(value: unknown): value is SharedProjectPayload {
+  return migrateSharePayload(value) !== null
+}
+
 export function deserializeSharePayload(
   raw: string,
   defaultSunProjection: ProjectSunProjectionSettings,
   defaultFootprintKwp: number,
 ): ProjectState {
   const parsed: unknown = JSON.parse(raw)
-  if (!validateSharePayload(parsed)) {
+  const migrated = migrateSharePayload(parsed)
+  if (!migrated) {
     throw new Error('Invalid share payload')
   }
 
   const footprints = Object.fromEntries(
-    parsed.footprints.map((footprint) => {
+    migrated.footprints.map((footprint) => {
       const stored: StoredFootprint = {
         id: footprint.id,
         polygon: footprint.polygon,
@@ -141,14 +183,14 @@ export function deserializeSharePayload(
 
   const loaded: ProjectState = {
     footprints,
-    activeFootprintId: parsed.activeFootprintId,
-    selectedFootprintIds: parsed.activeFootprintId ? [parsed.activeFootprintId] : [],
+    activeFootprintId: migrated.activeFootprintId,
+    selectedFootprintIds: migrated.activeFootprintId ? [migrated.activeFootprintId] : [],
     drawDraft: [],
     isDrawing: false,
     sunProjection: {
-      enabled: parsed.sunProjection?.enabled ?? defaultSunProjection.enabled,
-      datetimeIso: parsed.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
-      dailyDateIso: parsed.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
+      enabled: migrated.sunProjection?.enabled ?? defaultSunProjection.enabled,
+      datetimeIso: migrated.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
+      dailyDateIso: migrated.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
     },
   }
 

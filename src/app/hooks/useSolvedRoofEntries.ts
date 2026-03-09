@@ -18,6 +18,45 @@ interface SolveInputEntry {
   constraints: FaceConstraints
 }
 
+interface CachedSolveResult {
+  solution: SolvedRoofPlane
+  mesh: RoofMeshData
+  metrics: ReturnType<typeof computeRoofMetrics>
+}
+
+const SOLVED_FOOTPRINT_CACHE_LIMIT = 500
+const solvedFootprintCache = new Map<string, CachedSolveResult>()
+
+function fingerprintSolveInput(entry: SolveInputEntry): string {
+  const vertices = entry.footprint.vertices
+    .map((vertex) => `${vertex[0].toFixed(8)},${vertex[1].toFixed(8)}`)
+    .join(';')
+
+  const vertexHeights = [...entry.constraints.vertexHeights]
+    .sort((a, b) => a.vertexIndex - b.vertexIndex)
+    .map((constraint) => `${constraint.vertexIndex}:${constraint.heightM.toFixed(6)}`)
+    .join(';')
+
+  const edgeHeights = [...(entry.constraints.edgeHeights ?? [])]
+    .sort((a, b) => a.edgeIndex - b.edgeIndex)
+    .map((constraint) => `${constraint.edgeIndex}:${constraint.heightM.toFixed(6)}`)
+    .join(';')
+
+  return `${entry.footprint.id}|${vertices}|v:${vertexHeights}|e:${edgeHeights}`
+}
+
+function cacheSolvedResult(fingerprint: string, result: CachedSolveResult): void {
+  solvedFootprintCache.set(fingerprint, result)
+  if (solvedFootprintCache.size <= SOLVED_FOOTPRINT_CACHE_LIMIT) {
+    return
+  }
+
+  const oldestKey = solvedFootprintCache.keys().next().value
+  if (typeof oldestKey === 'string') {
+    solvedFootprintCache.delete(oldestKey)
+  }
+}
+
 export function useSolvedRoofEntries(footprintEntries: SolveInputEntry[], activeFootprintId: string | null) {
   return useMemo(() => {
     const solvedEntries: SolvedEntry[] = []
@@ -32,10 +71,30 @@ export function useSolvedRoofEntries(footprintEntries: SolveInputEntry[], active
         continue
       }
 
+      const solveFingerprint = fingerprintSolveInput(entry)
+      const cached = solvedFootprintCache.get(solveFingerprint)
+      if (cached) {
+        solvedEntries.push({
+          footprintId: entry.footprint.id,
+          solution: cached.solution,
+          mesh: cached.mesh,
+          metrics: cached.metrics,
+        })
+        continue
+      }
+
       try {
         const solution = solveRoofPlane(entry.footprint, entry.constraints)
         const mesh = generateRoofMesh(entry.footprint, solution.vertexHeightsM)
         const metrics = computeRoofMetrics(solution.plane, mesh)
+
+        const cachedResult: CachedSolveResult = {
+          solution,
+          mesh,
+          metrics,
+        }
+        cacheSolvedResult(solveFingerprint, cachedResult)
+
         solvedEntries.push({
           footprintId: entry.footprint.id,
           solution,

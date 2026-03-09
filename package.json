@@ -13,6 +13,7 @@
     "hooks:install": "bash scripts/install-git-hooks.sh",
     "prepare": "npm run hooks:install",
     "test": "vitest run --exclude \"**/e2e/**\"",
+    "test:coverage": "vitest run --exclude \"**/e2e/**\" --coverage --coverage.reporter=text-summary --coverage.reporter=lcov --coverage.reporter=json-summary",
     "test:e2e": "playwright test",
     "test:e2e:coverage": "cross-env PW_COVERAGE=1 playwright test",
     "coverage:e2e:report": "nyc report --reporter=html --reporter=text-summary --reporter=lcov",

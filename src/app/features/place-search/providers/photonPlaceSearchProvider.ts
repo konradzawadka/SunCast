@@ -1,4 +1,5 @@
 import type { PlaceSearchProvider, PlaceSearchResult } from '../placeSearch.types'
+import { captureException, recordEvent, recordMetric } from '../../../../shared/observability/observability'
 
 interface PhotonFeature {
   geometry?: {
@@ -77,25 +78,49 @@ export class PhotonPlaceSearchProvider implements PlaceSearchProvider {
       params.set('lang', options.lang)
     }
 
-    const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`, {
-      method: 'GET',
-      signal: options?.signal,
-    })
+    let lastError: unknown = null
+    const startedAt = performance.now()
 
-    if (!response.ok) {
-      throw new Error(`Photon request failed (${response.status})`)
-    }
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await fetch(`https://photon.komoot.io/api/?${params.toString()}`, {
+          method: 'GET',
+          signal: options?.signal,
+        })
 
-    const data = (await response.json()) as PhotonResponse
-    const results: PlaceSearchResult[] = []
+        if (!response.ok) {
+          throw new Error(`Photon request failed (${response.status})`)
+        }
 
-    for (const [index, feature] of (data.features ?? []).entries()) {
-      const mapped = mapFeature(feature, index)
-      if (mapped) {
-        results.push(mapped)
+        const data = (await response.json()) as PhotonResponse
+        const results: PlaceSearchResult[] = []
+
+        for (const [index, feature] of (data.features ?? []).entries()) {
+          const mapped = mapFeature(feature, index)
+          if (mapped) {
+            results.push(mapped)
+          }
+        }
+
+        recordMetric('place-search.request.duration_ms', performance.now() - startedAt, {
+          attempt,
+          resultCount: results.length,
+        })
+        return results
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          throw error
+        }
+
+        lastError = error
+        if (attempt < 2) {
+          recordEvent('place-search.request_retry', { attempt })
+          continue
+        }
       }
     }
 
-    return results
+    captureException(lastError, { area: 'place-search-photon', query })
+    throw (lastError ?? new Error('Photon request failed'))
   }
 }
