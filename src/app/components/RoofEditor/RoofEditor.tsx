@@ -118,7 +118,6 @@ export function RoofEditor({
         <HintTooltip hint="At least 3 non-collinear constrained points are needed to solve a roof plane.">?</HintTooltip>
       </h3>
       <p>Set at least 3 vertex heights in meters. Edge edit sets both endpoint vertices and can auto-seed a third point.</p>
-      <p className="panel-hint">Tip: Click a vertex/edge on the map to focus the matching input row.</p>
       <p>
         Active constraints:{' '}
         {activeConstraints.length > 0 ? activeConstraints.join(', ') : 'none'}

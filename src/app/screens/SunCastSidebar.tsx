@@ -52,7 +52,6 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
         />
       )}
       <p className="subtitle">Draw your roof and get short-term and long-term production forecasts.</p>
-      <p className="panel-hint">Shortcuts: Escape cancels drawing, Ctrl/Cmd+A selects all polygons.</p>
       {model.shareError && <p className="status-error">{model.shareError}</p>}
       {!model.shareError && model.shareSuccess && <p className="status-success">{model.shareSuccess}</p>}
 

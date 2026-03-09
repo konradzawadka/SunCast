@@ -25,7 +25,6 @@ export function DrawTools({
           ?
         </HintTooltip>
       </h3>
-      <p className="panel-hint">Tip: Hold Shift while drawing to disable right-angle snapping for the next point.</p>
       {!isDrawing ? (
         <button type="button" onClick={onStart} title="Start polygon drawing mode." data-testid="draw-footprint-button">
           Draw Roof Polygon
