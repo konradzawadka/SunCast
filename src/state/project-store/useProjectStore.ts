@@ -15,6 +15,7 @@ import {
 import { readStorage, writeStorage } from './projectState.storage'
 import { deserializeSharePayload } from './projectState.share'
 import { decodeSharePayload } from '../../shared/utils/shareCodec'
+import { captureException, recordEvent } from '../../shared/observability/observability'
 
 const SOLVER_CONFIG_VERSION = 'uc6'
 
@@ -42,17 +43,21 @@ export function useProjectStore() {
         } catch {
           if (!cancelled) {
             setStartupHydrationError('Invalid shared URL. Loaded saved project instead.')
+            recordEvent('startup.hydration.hash_failed')
           }
         }
       }
 
-      const stored = readStorage(DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP)
+      const stored = readStorage(DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP, SOLVER_CONFIG_VERSION)
       if (stored && !cancelled) {
         dispatch({ type: 'LOAD', payload: stored })
+        recordEvent('startup.hydration.storage_loaded')
       }
     }
 
-    void hydrate()
+    void hydrate().catch((error: unknown) => {
+      captureException(error, { area: 'startup-hydration' })
+    })
 
     return () => {
       cancelled = true

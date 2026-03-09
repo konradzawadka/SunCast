@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PhotonPlaceSearchProvider } from './providers/photonPlaceSearchProvider'
 import type { PlaceSearchProvider, PlaceSearchResult } from './placeSearch.types'
+import { captureException, recordEvent } from '../../../shared/observability/observability'
 
 const QUERY_MIN_LENGTH = 3
 const DEFAULT_DEBOUNCE_MS = 300
 const DEFAULT_LIMIT = 5
 const SUPPORTED_LANGS = new Set(['de', 'en', 'fr'])
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000
+
+interface CachedSearchResult {
+  results: PlaceSearchResult[]
+  fetchedAtMs: number
+}
 
 interface UsePlaceSearchArgs {
   query: string
@@ -21,6 +28,7 @@ interface UsePlaceSearchResult {
 }
 
 const defaultProvider = new PhotonPlaceSearchProvider()
+const searchCache = new Map<string, CachedSearchResult>()
 
 function resolveProviderLang(locale: string): string | undefined {
   const normalized = locale.trim().toLowerCase()
@@ -60,6 +68,17 @@ export function usePlaceSearch({
       return
     }
 
+    const cacheKey = `${resolveProviderLang(navigator.language) ?? 'default'}|${normalizedQuery.toLowerCase()}`
+    const cached = searchCache.get(cacheKey)
+    if (cached && Date.now() - cached.fetchedAtMs <= SEARCH_CACHE_TTL_MS) {
+      setResults(cached.results)
+      setLoading(false)
+      setError(null)
+      setHasSearched(true)
+      recordEvent('place-search.cache_hit', { queryLength: normalizedQuery.length })
+      return
+    }
+
     const timeoutId = window.setTimeout(async () => {
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -74,16 +93,25 @@ export function usePlaceSearch({
           signal: controller.signal,
         })
         if (!controller.signal.aborted) {
-          setResults(nextResults.slice(0, DEFAULT_LIMIT))
+          const limitedResults = nextResults.slice(0, DEFAULT_LIMIT)
+          searchCache.set(cacheKey, { results: limitedResults, fetchedAtMs: Date.now() })
+          setResults(limitedResults)
           setHasSearched(true)
         }
       } catch (caughtError) {
         if (controller.signal.aborted) {
           return
         }
-        setResults([])
+        if (cached) {
+          setResults(cached.results)
+          setError('Search service unavailable. Showing cached results.')
+          recordEvent('place-search.cache_stale_fallback', { queryLength: normalizedQuery.length })
+        } else {
+          setResults([])
+          setError(caughtError instanceof Error ? caughtError.message : 'Search failed')
+        }
         setHasSearched(true)
-        setError(caughtError instanceof Error ? caughtError.message : 'Search failed')
+        captureException(caughtError, { area: 'place-search-hook', hasCache: String(Boolean(cached)) })
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false)

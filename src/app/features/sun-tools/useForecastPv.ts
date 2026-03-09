@@ -3,6 +3,7 @@ import type { SelectedRoofSunInput } from './SunOverlayColumn'
 import { fetchOpenMeteoTiltedIrradiance } from './forecast/openMeteoForecast'
 import { createRoofForecastProfile, mergeSettledRoofForecasts, type ForecastPoint } from './forecast/forecastPvTransform'
 import { extractDateIsoInTimeZone } from './sunDateTime'
+import { captureException, recordEvent } from '../../../shared/observability/observability'
 
 const FORECAST_TIME_ZONE = 'UTC'
 
@@ -74,11 +75,13 @@ export function useForecastPv({
 
         if (merged.succeededRoofCount === 0 && merged.failedRoofCount > 0) {
           setForecastError('Forecast unavailable for all selected polygons.')
+          recordEvent('forecast.unavailable_all', { failedRoofCount: merged.failedRoofCount })
           return
         }
 
         if (merged.failedRoofCount > 0) {
           setForecastError(`Forecast unavailable for ${merged.failedRoofCount} selected polygon(s).`)
+          recordEvent('forecast.unavailable_partial', { failedRoofCount: merged.failedRoofCount })
           return
         }
 
@@ -90,6 +93,7 @@ export function useForecastPv({
         }
         setForecastPoints([])
         setForecastError(error instanceof Error ? error.message : 'Unknown forecast API error')
+        captureException(error, { area: 'forecast-hook' })
       })
       .finally(() => {
         setIsForecastLoading(false)
