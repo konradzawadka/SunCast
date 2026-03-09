@@ -34,6 +34,7 @@ interface MapViewProps {
   onAdjustHeight: (stepM: number) => void
   showSolveHint: boolean
   onMapClick: (point: [number, number]) => void
+  onCloseDrawing: () => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
   onGeometryDragStateChange: (dragging: boolean) => void
@@ -69,6 +70,7 @@ export function MapView({
   onAdjustHeight,
   showSolveHint,
   onMapClick,
+  onCloseDrawing,
   onBearingChange,
   onPitchChange,
   onGeometryDragStateChange,
@@ -113,6 +115,7 @@ export function MapView({
     [onMapClick],
   )
   const onMapClickRef = useLatest(handleDrawPointCommit)
+  const onCloseDrawingRef = useLatest(onCloseDrawing)
   const onSelectVertexRef = useLatest(onSelectVertex)
   const onSelectEdgeRef = useLatest(onSelectEdge)
   const onSelectFootprintRef = useLatest(onSelectFootprint)
@@ -130,6 +133,7 @@ export function MapView({
       orbitEnabledRef,
       activeFootprintRef,
       onMapClickRef,
+      onCloseDrawingRef,
       onSelectVertexRef,
       onSelectEdgeRef,
       onSelectFootprintRef,
@@ -148,6 +152,7 @@ export function MapView({
       onBearingChangeRef,
       onClearSelectionRef,
       onMapClickRef,
+      onCloseDrawingRef,
       onMoveEdgeRef,
       onMoveRejectedRef,
       onMoveVertexRef,

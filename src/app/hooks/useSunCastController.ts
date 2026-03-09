@@ -322,6 +322,10 @@ export function useSunCastController(): {
     onMoveRejected: setMoveRejectedError,
     onAdjustHeight: applyHeightStep,
     onMapClick: addDraftPoint,
+    onCloseDrawing: () => {
+      commitFootprint()
+      clearSelectionState()
+    },
     onBearingChange: setMapBearingDeg,
     onPitchChange: setMapPitchDeg,
     onGeometryDragStateChange: setIsGeometryDragActive,

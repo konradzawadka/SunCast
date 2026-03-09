@@ -2,6 +2,7 @@ import type maplibregl from 'maplibre-gl'
 import {
   CLICK_HIT_TOLERANCE_PX,
   DRAG_HIT_TOLERANCE_PX,
+  DRAW_CLOSE_SNAP_TOLERANCE_PX,
   EDGE_HIT_LAYER_ID,
   FOOTPRINT_HIT_LAYER_ID,
   MAX_ORBIT_PITCH_DEG,
@@ -31,6 +32,25 @@ interface CreateMapInteractionHandlersArgs {
   setHoveredEdgeLength: (value: HoveredEdgeLength | null) => void
   setDrawingAngleHint: (value: DrawingAngleHint | null) => void
   setDraftPreviewPoint: (value: [number, number] | null) => void
+}
+
+function getClosePolygonSnapPoint(
+  map: maplibregl.Map,
+  drawDraft: Array<[number, number]>,
+  point: [number, number],
+): [number, number] | null {
+  if (drawDraft.length < 3) {
+    return null
+  }
+
+  const firstPoint = drawDraft[0]
+  const firstPointScreen = map.project({ lng: firstPoint[0], lat: firstPoint[1] })
+  const cursorScreen = map.project({ lng: point[0], lat: point[1] })
+  const dx = cursorScreen.x - firstPointScreen.x
+  const dy = cursorScreen.y - firstPointScreen.y
+  const distancePx = Math.sqrt(dx * dx + dy * dy)
+
+  return distancePx <= DRAW_CLOSE_SNAP_TOLERANCE_PX ? firstPoint : null
 }
 
 function getDrawPoint(
@@ -66,10 +86,12 @@ export function createMapInteractionHandlers({
       if (drawDraft.length >= 1) {
         const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
         const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap, constrainedDrawLengthM)
-        const lengthM = segmentLengthMeters(drawDraft[drawDraft.length - 1], snapped.point)
+        const closePolygonPoint = disableSnap ? null : getClosePolygonSnapPoint(map, drawDraft, snapped.point)
+        const previewPoint = closePolygonPoint ?? snapped.point
+        const lengthM = segmentLengthMeters(drawDraft[drawDraft.length - 1], previewPoint)
         const secondPointPreview = drawDraft.length === 1
-        const azimuthDeg = secondPointPreview ? segmentAzimuthDeg(drawDraft[0], snapped.point) : null
-        setDraftPreviewPoint(snapped.point)
+        const azimuthDeg = secondPointPreview ? segmentAzimuthDeg(drawDraft[0], previewPoint) : null
+        setDraftPreviewPoint(previewPoint)
         setDrawingAngleHint({
           left: event.point.x,
           top: event.point.y,
@@ -78,7 +100,7 @@ export function createMapInteractionHandlers({
           angleFromSouthDeg: azimuthDeg !== null ? angleFromSouthDeg(azimuthDeg) : null,
           secondPointPreview,
           lengthM,
-          snapped: snapped.snapped,
+          snapped: snapped.snapped || closePolygonPoint !== null,
         })
       } else {
         setDraftPreviewPoint(null)
@@ -195,7 +217,12 @@ export function createMapInteractionHandlers({
       const drawDraft = refs.drawDraftRef.current
       const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
       const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap, constrainedDrawLengthM)
-      refs.onMapClickRef.current(snapped.point)
+      const closePolygonPoint = disableSnap ? null : getClosePolygonSnapPoint(map, drawDraft, snapped.point)
+      if (closePolygonPoint !== null) {
+        refs.onCloseDrawingRef.current()
+      } else {
+        refs.onMapClickRef.current(snapped.point)
+      }
       return
     }
 

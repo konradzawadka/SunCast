@@ -32,6 +32,7 @@ export interface MapInteractionRefs {
   orbitEnabledRef: RefObject<boolean>
   activeFootprintRef: RefObject<FootprintPolygon | null>
   onMapClickRef: RefObject<(point: [number, number]) => void>
+  onCloseDrawingRef: RefObject<() => void>
   onSelectVertexRef: RefObject<(vertexIndex: number) => void>
   onSelectEdgeRef: RefObject<(edgeIndex: number) => void>
   onSelectFootprintRef: RefObject<(footprintId: string, multiSelect: boolean) => void>

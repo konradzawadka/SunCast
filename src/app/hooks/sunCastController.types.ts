@@ -115,6 +115,7 @@ export interface SunCastCanvasModel {
   onMoveRejected: () => void
   onAdjustHeight: (stepM: number) => void
   onMapClick: (point: [number, number]) => void
+  onCloseDrawing: () => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
   onGeometryDragStateChange: (dragging: boolean) => void

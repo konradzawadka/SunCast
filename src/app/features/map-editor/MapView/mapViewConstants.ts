@@ -8,6 +8,7 @@ export const AUTO_FOCUS_MAX_ZOOM = 19
 
 export const CLICK_HIT_TOLERANCE_PX = 10
 export const DRAG_HIT_TOLERANCE_PX = 12
+export const DRAW_CLOSE_SNAP_TOLERANCE_PX = 16
 export const ORBIT_STEER_BEARING_PER_PIXEL_DEG = 0.35
 export const ORBIT_STEER_PITCH_PER_PIXEL_DEG = 0.2
 

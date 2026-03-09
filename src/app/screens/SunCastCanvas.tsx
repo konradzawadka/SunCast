@@ -34,6 +34,7 @@ export function SunCastCanvas({ model }: SunCastCanvasProps) {
         onAdjustHeight={model.onAdjustHeight}
         showSolveHint={model.showSolveHint}
         onMapClick={model.onMapClick}
+        onCloseDrawing={model.onCloseDrawing}
         onBearingChange={model.onBearingChange}
         onPitchChange={model.onPitchChange}
         onGeometryDragStateChange={model.onGeometryDragStateChange}

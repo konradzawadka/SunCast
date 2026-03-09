@@ -97,6 +97,7 @@ function createRefs(overrides: Partial<InteractionRefs> = {}): InteractionRefs {
       },
     },
     onMapClickRef: { current: vi.fn() },
+    onCloseDrawingRef: { current: vi.fn() },
     onSelectVertexRef: { current: vi.fn() },
     onSelectEdgeRef: { current: vi.fn() },
     onSelectFootprintRef: { current: vi.fn() },
@@ -164,6 +165,70 @@ describe('useMapInteractions', () => {
     const unsnapped = onMapClick.mock.calls[0][0] as [number, number]
     expect(unsnapped[0]).toBeCloseTo(0.00105, 6)
     expect(unsnapped[1]).toBeCloseTo(0.0003, 6)
+    hook.unmount()
+  })
+
+  it('closes drawing when clicking near the first draft point', () => {
+    const { handlers, map } = createMapMock()
+    const onMapClick = vi.fn()
+    const onCloseDrawing = vi.fn()
+    map.project.mockImplementation(({ lng, lat }: { lng: number; lat: number }) => ({
+      x: lng * 1000,
+      y: lat * 1000,
+    }))
+    const refs = createRefs({
+      drawingRef: { current: true },
+      drawDraftRef: { current: [[0, 0], [0.001, 0], [0.001, 0.001]] as Array<[number, number]> },
+      onMapClickRef: { current: onMapClick },
+      onCloseDrawingRef: { current: onCloseDrawing },
+    })
+    const mapRef = createRef<unknown>()
+    mapRef.current = map
+
+    const hook = renderInteractions({ mapRef, mapLoaded: true, refs })
+
+    act(() => {
+      handlers.click({
+        point: { x: 40, y: 50 },
+        lngLat: { lng: 0.00001, lat: 0.00001 },
+        originalEvent: new MouseEvent('click'),
+      })
+    })
+
+    expect(onCloseDrawing).toHaveBeenCalledTimes(1)
+    expect(onMapClick).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
+  it('does not close drawing on first-point snap while shift is pressed', () => {
+    const { handlers, map } = createMapMock()
+    const onMapClick = vi.fn()
+    const onCloseDrawing = vi.fn()
+    map.project.mockImplementation(({ lng, lat }: { lng: number; lat: number }) => ({
+      x: lng * 1000,
+      y: lat * 1000,
+    }))
+    const refs = createRefs({
+      drawingRef: { current: true },
+      drawDraftRef: { current: [[0, 0], [0.001, 0], [0.001, 0.001]] as Array<[number, number]> },
+      onMapClickRef: { current: onMapClick },
+      onCloseDrawingRef: { current: onCloseDrawing },
+    })
+    const mapRef = createRef<unknown>()
+    mapRef.current = map
+
+    const hook = renderInteractions({ mapRef, mapLoaded: true, refs })
+
+    act(() => {
+      handlers.click({
+        point: { x: 40, y: 50 },
+        lngLat: { lng: 0.00001, lat: 0.00001 },
+        originalEvent: new MouseEvent('click', { shiftKey: true }),
+      })
+    })
+
+    expect(onCloseDrawing).not.toHaveBeenCalled()
+    expect(onMapClick).toHaveBeenCalledTimes(1)
     hook.unmount()
   })
 
