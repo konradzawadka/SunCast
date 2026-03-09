@@ -20,7 +20,7 @@ const KEYBOARD_SHORTCUTS: Array<{ keys: string; description: string }> = [
   { keys: 'Arrow Up / Arrow Down (Sun DateTime)', description: 'Move datetime by day (-1 / +1).' },
   { keys: 'Shift + Arrow Up / Arrow Down (Sun DateTime)', description: 'Move datetime by hour (+1 / -1).' },
   { keys: 'Enter (vertex/edge height input)', description: 'Apply entered roof height constraint.' },
-  { keys: 'Escape', description: 'Close this intro overlay.' },
+  { keys: 'Escape', description: 'Cancel drawing or close this intro overlay.' },
   { keys: 'Shift + height gizmo click', description: 'Adjust selected height by 1.0 m (default step is 0.1 m).' },
 ]
 

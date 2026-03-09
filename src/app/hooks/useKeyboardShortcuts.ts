@@ -2,11 +2,19 @@ import { useEffect } from 'react'
 
 interface UseKeyboardShortcutsParams {
   onSelectAllFootprints: () => void
+  isDrawing: boolean
+  onCancelDrawing: () => void
 }
 
-export function useKeyboardShortcuts({ onSelectAllFootprints }: UseKeyboardShortcutsParams): void {
+export function useKeyboardShortcuts({ onSelectAllFootprints, isDrawing, onCancelDrawing }: UseKeyboardShortcutsParams): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isDrawing) {
+        event.preventDefault()
+        onCancelDrawing()
+        return
+      }
+
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'a') {
         return
       }
@@ -20,5 +28,5 @@ export function useKeyboardShortcuts({ onSelectAllFootprints }: UseKeyboardShort
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [onSelectAllFootprints])
+  }, [isDrawing, onCancelDrawing, onSelectAllFootprints])
 }

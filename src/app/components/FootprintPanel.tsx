@@ -22,7 +22,7 @@ export function FootprintPanel({
   onDeleteActiveFootprint,
 }: FootprintPanelProps) {
   return (
-    <section className="panel-section">
+    <section className="panel-section footprint-panel">
       <div className="panel-section-header">
         <h3>Roof Polygons</h3>
         <button
@@ -60,7 +60,7 @@ export function FootprintPanel({
       )}
 
       {activeFootprintId && activeFootprintKwp !== null ? (
-        <label style={{ display: 'grid', gap: '0.3rem', marginTop: '0.75rem' }}>
+        <label className="footprint-kwp-input">
           Active polygon kWp
           <input
             type="number"
@@ -78,9 +78,11 @@ export function FootprintPanel({
         </label>
       ) : null}
 
-      <button type="button" disabled={!activeFootprintId} onClick={onDeleteActiveFootprint}>
-        Delete Active Footprint
-      </button>
+      <div className="footprint-panel-actions">
+        <button type="button" disabled={!activeFootprintId} onClick={onDeleteActiveFootprint}>
+          Delete Active Footprint
+        </button>
+      </div>
     </section>
   )
 }

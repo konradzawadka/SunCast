@@ -183,7 +183,19 @@ Typical usage flow:
 7. **Navigate sun date quickly**
 
    * in **Sun Date & Time**, use arrow keys to change date by 1 day
-   * `→` or `↓` = next day, `←` or `↑` = previous day
+   * `↓` = next day, `↑` = previous day
+   * `Shift + ↑` = +1 hour, `Shift + ↓` = -1 hour
+
+8. **Useful shortcuts**
+
+   * `Escape` while drawing cancels active drawing
+   * `Shift` while drawing temporarily disables right-angle snap
+   * `Ctrl/Cmd + A` selects all footprints (when not focused in an input)
+
+9. **Use tutorial onboarding**
+
+   * click `?` in sidebar title row to open quick guide + shortcuts
+   * click **Start interactive tutorial** to run spotlight walkthrough
 
 ---
 

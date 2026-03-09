@@ -1,9 +1,11 @@
-## PLAN — Guided Tutorial With Clouds (Feature Walkthrough)
+## PLAN — Guided Tutorial With Intro Overlay (Feature Walkthrough)
 
 ### Goal
 
-Introduce a **guided onboarding tutorial** that visually explains the main workflow of the app using **cloud overlays** (highlight masks) and short instructions.
-The tutorial walks the user through the core roof-setup flow step by step.
+Introduce a **guided onboarding tutorial** that visually explains the main workflow of the app:
+
+1. A **quick guide intro overlay** (workflow + shortcuts + system notes).
+2. A **step-by-step spotlight tutorial** with cloud overlays.
 
 The tutorial should **not block the UI completely**, but guide the user by highlighting the correct controls and areas.
 
@@ -11,9 +13,50 @@ The tutorial should **not block the UI completely**, but guide the user by highl
 
 # Tutorial Flow
 
-The tutorial consists of **5 ordered steps**.
+The interactive tutorial consists of **6 ordered steps**.
 
 Each step highlights a specific UI element or map area using a **cloud / spotlight overlay**.
+
+The user enters this flow from the sidebar `?` button:
+
+1. `?` opens intro overlay.
+2. User clicks **Start interactive tutorial**.
+3. Spotlight tutorial starts at step 1.
+
+---
+
+# Intro overlay (pre-tutorial)
+
+### Purpose
+
+Show compact onboarding context before the interactive walkthrough.
+
+### Content blocks
+
+* Workflow summary:
+  * draw polygon
+  * set `kWp`
+  * set height constraints
+  * solve/inspect roof
+  * adjust roof pitch
+* Keyboard shortcuts:
+  * `Ctrl/Cmd + A` select all footprints (outside text inputs)
+  * `Shift` while drawing disables right-angle snap
+  * `Tab` while drawing focuses edge-length input
+  * `Enter` in edge-length input commits draw point
+  * `Arrow Up/Down` in Sun DateTime shifts day
+  * `Shift + Arrow Up/Down` in Sun DateTime shifts hour
+  * `Enter` in vertex/edge height inputs applies value
+  * `Escape` cancels drawing or closes intro overlay
+  * `Shift` + height gizmo click uses large height step
+
+### Intro overlay close behavior
+
+User can close via:
+
+* Close button
+* backdrop click
+* `Escape`
 
 ---
 
@@ -166,6 +209,28 @@ User enters orbit view or closes tutorial.
 
 ---
 
+# Step 6 — Adjust date with arrows
+
+### Purpose
+
+Teach keyboard-first datetime navigation in the Sun tools panel.
+
+### UI behavior
+
+Highlight:
+
+* `Sun Date & Time` input
+
+Instruction text:
+
+> In the Sun Date & Time input, use Arrow Up for previous day and Arrow Down for next day.
+
+### Conditions to advance
+
+User changes datetime using keyboard input (day/hour stepping supported).
+
+---
+
 # Overlay system
 
 ### Cloud overlay requirements
@@ -223,6 +288,7 @@ It observes:
 * kWp input value
 * vertex heights
 * orbit view activation
+* datetime keyboard update
 
 Tutorial step automatically advances when conditions are satisfied.
 
@@ -257,13 +323,14 @@ Responsibilities:
 
 Tutorial listens to these events:
 
-| Event                 | Source          |
-| --------------------- | --------------- |
-| polygon vertex added  | map editor      |
-| polygon finished      | finish button   |
-| kWp changed           | input field     |
-| vertex height changed | height inputs   |
-| orbit view activated  | camera controls |
+| Event                  | Source             |
+| ---------------------- | ------------------ |
+| polygon vertex added   | map editor         |
+| polygon finished       | finish button      |
+| kWp changed            | input field        |
+| vertex height changed  | height inputs      |
+| orbit view activated   | camera controls    |
+| datetime key-adjusted  | Sun DateTime input |
 
 ---
 
@@ -286,7 +353,7 @@ Not required for MVP:
 * animated arrows
 * ghost example polygon
 * demo roof preview
-* small progress bar (Step 1/5)
+* small progress bar (Step 1/6)
 * replay tutorial button
 
 ---
@@ -301,9 +368,10 @@ Tutorial works correctly when:
 4. Step 3 highlights kWp input.
 5. Step 4 highlights vertex height inputs.
 6. Step 5 highlights pitch indicator and orbit view.
-7. Tutorial advances automatically when step conditions are satisfied.
-8. Tutorial can be skipped.
-9. Tutorial completion is stored locally.
-10. Tutorial never blocks core editing functionality.
+7. Step 6 highlights Sun DateTime keyboard navigation.
+8. Tutorial advances automatically when step conditions are satisfied.
+9. Tutorial can be skipped.
+10. Tutorial completion is stored locally.
+11. Tutorial never blocks core editing functionality.
 
 ---

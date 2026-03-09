@@ -106,8 +106,27 @@ body {
   margin-bottom: 10px;
 }
 
+.footprint-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.footprint-panel .panel-section-header,
+.footprint-panel p {
+  margin: 0;
+}
+
 .footprint-list-item {
   text-align: left;
+}
+
+.footprint-kwp-input {
+  display: grid;
+  gap: 6px;
+}
+
+.footprint-panel-actions {
+  margin-top: 2px;
 }
 
 .footprint-list-item-selected {

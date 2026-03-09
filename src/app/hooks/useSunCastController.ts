@@ -337,6 +337,11 @@ export function useSunCastController(): {
       selectAllFootprints()
       clearSelectionState()
     },
+    isDrawing: state.isDrawing,
+    onCancelDrawing: () => {
+      cancelDrawing()
+      clearSelectionState()
+    },
   })
 
   const onImportDevEntries = (entries: ImportedFootprintConfigEntry[]) => {
