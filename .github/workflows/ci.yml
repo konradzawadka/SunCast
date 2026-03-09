@@ -40,15 +40,18 @@ jobs:
           }
           const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8')).total
           const pct = (value) => (typeof value?.pct === 'number' ? value.pct.toFixed(2) : 'n/a')
+          const coverageReport = [
+            '## Coverage',
+            '',
+            `- Lines: ${pct(summary.lines)}%`,
+            `- Branches: ${pct(summary.branches)}%`,
+            `- Functions: ${pct(summary.functions)}%`,
+            `- Statements: ${pct(summary.statements)}%`,
+            '',
+          ].join('\n')
           fs.appendFileSync(
             process.env.GITHUB_STEP_SUMMARY,
-            `## Coverage
-
-- Lines: ${pct(summary.lines)}%
-- Branches: ${pct(summary.branches)}%
-- Functions: ${pct(summary.functions)}%
-- Statements: ${pct(summary.statements)}%
-`,
+            coverageReport,
           )
           NODE
 
