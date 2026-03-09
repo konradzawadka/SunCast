@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "precommit:check": "npm run lint && npm test && npm run build",
+    "precommit:check": "npm run lint && npm run test:coverage && npm run build",
     "prepush:check": "npm run build",
     "hooks:install": "bash scripts/install-git-hooks.sh",
     "prepare": "npm run hooks:install",
