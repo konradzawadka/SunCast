@@ -9,6 +9,7 @@
 - `VENDOR_HANDOVER.md`
 - `runtime_boundaries.md`
 - `TEST_STRATEGY.md`
+- `product/UC*`
 
 ## Iteration / Historical Docs
 

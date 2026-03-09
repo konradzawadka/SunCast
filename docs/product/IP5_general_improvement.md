@@ -18,7 +18,7 @@ My verdict:
 
 2. **Useful product thinking exists in docs**
 
-   * `docs/UC*.md`, `UI_STRATEGY.md`, `TEST_STRATEGY.md` show clear intent.
+   * `docs/product/UC*.md`, `UI_STRATEGY.md`, `TEST_STRATEGY.md` show clear intent.
    * The app is not random code. It has a direction.
 
 3. **Store persistence is pragmatic**

@@ -271,7 +271,7 @@ Important design principles:
 
 Recommended development workflow:
 
-1. read relevant **UC*.md** in `docs/`
+1. read relevant **UC*.md** in `docs/product/`
 2. update logic or UI
 3. add or update tests
 4. verify with Playwright E2E

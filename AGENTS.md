@@ -12,6 +12,48 @@ The system allows users to:
 
 ---
 
+# Read this first
+
+`AGENTS.md` is an entry document, not the full contract.
+
+All contributors must also read the relevant docs before making changes:
+
+## Core repository contract
+
+- `README.md` — repository entry point, local setup, main commands
+- `docs/README.md` — docs index and canonical vs historical docs split
+- `docs/ARCHITECTURE.md` — system shape, module boundaries, major flows
+- `docs/runtime_boundaries.md` — allowed dependency directions and runtime separation
+- `docs/DECISIONS.md` — architectural decisions that must not be accidentally reversed
+- `docs/FEATURES.md` — current product capabilities and intended surface area
+
+## Delivery and vendor-control docs
+
+- `docs/VENDOR_HANDOVER.md` — handover expectations and transfer context
+- `docs/PR.md` — PR strategy, branch naming, review scope, merge discipline
+- `docs/RUNBOOK.md` — operational handling, failure handling, recovery expectations
+- `docs/TEST_STRATEGY.md` — expected proof for correctness, regression, and risk-based validation
+- `docs/VENDOR_EXECUTION_GUARDRAILS.md` — normative delivery rules; this should be treated as binding when present
+
+## Iteration / planning docs
+
+- `docs/product/UC*` and `docs/product/IP*` — useful context only; not the canonical implementation contract
+
+## Priority when docs differ
+
+Use this order of authority:
+
+1. `docs/VENDOR_EXECUTION_GUARDRAILS.md`
+2. `docs/ARCHITECTURE.md` and `docs/runtime_boundaries.md`
+3. `docs/DECISIONS.md`
+4. `docs/TEST_STRATEGY.md` and `docs/PR.md`
+5. `README.md` and `docs/FEATURES.md`
+6. iteration docs (`UC*`, `IP*`)
+
+If a change conflicts with higher-priority docs, the change is wrong unless those docs are updated in the same PR.
+
+---
+
 # Quick workflow (what to do first)
 
 1. **Understand geometry model**
@@ -19,27 +61,33 @@ The system allows users to:
    - Vertex/edge height constraints
    - Plane solver → roof mesh
 
-2. **Implement solver logic first**
+2. **Read the architectural contract**
+   - `docs/ARCHITECTURE.md`
+   - `docs/runtime_boundaries.md`
+   - `docs/DECISIONS.md`
+
+3. **Read the delivery contract**
+   - `docs/PR.md`
+   - `docs/TEST_STRATEGY.md`
+   - `docs/VENDOR_EXECUTION_GUARDRAILS.md`
+
+4. **Implement solver logic first when touching geometry**
    - Convert coordinates → meters
    - Fit plane from constraints
    - Generate 3D vertices
 
-3. **Integrate with map**
+5. **Integrate with map/UI only after domain logic is stable**
    - Display satellite tiles
    - Draw footprints
    - Select vertex / edge
 
-4. **Render 3D roof**
-   - Build mesh from solved plane
-   - Render overlay on map
-
-5. **Persist project**
-   - Save footprint + constraints
+6. **Persist only canonical project state**
+   - Save footprint + constraints + explicit project inputs
    - Regenerate geometry deterministically
 
 ---
 
-# Repository map (authoritative)
+# Repository map (illustrative)
 
 ```text
 root/
@@ -47,24 +95,22 @@ root/
   src/
     app/
       components/
-        MapView/            # MapLibre integration
-        DrawTools/          # footprint drawing + editing
-        RoofEditor/         # vertex/edge height editing
+      hooks/
       screens/
-        EditorScreen.tsx    # main application UI
     geometry/
-      solver/               # plane fitting + constraints
-      mesh/                 # roof mesh generation
-      projection/           # lon/lat → meters conversion
+      solver/
+      mesh/
+      projection/
     rendering/
-      roof-layer/           # 3D roof mesh overlay
+      roof-layer/
     state/
-      project-store/        # project state + persistence
+      project-store/
     types/
-      geometry.ts           # domain geometry types
   public/
   config/
 ```
+
+See `docs/ARCHITECTURE.md` for the current authoritative structure.
 
 ---
 
@@ -74,7 +120,7 @@ root/
 
 Everything derives from:
 
-```
+```text
 footprint polygon
 + height constraints
 -------------------
@@ -84,6 +130,11 @@ roof planes
 
 Meshes are **derived artifacts** and must never become the source of truth.
 
+This must remain aligned with:
+- `docs/ARCHITECTURE.md`
+- `docs/DECISIONS.md`
+- `docs/VENDOR_EXECUTION_GUARDRAILS.md`
+
 ---
 
 ## Coordinate system
@@ -92,7 +143,7 @@ All geometry calculations must run in **meters**.
 
 Workflow:
 
-```
+```text
 lon/lat
 → local planar coordinates (meters)
 → geometry solving
@@ -101,6 +152,11 @@ lon/lat
 ```
 
 Never run geometric solvers directly in lon/lat.
+
+See also:
+- `docs/ARCHITECTURE.md`
+- `docs/runtime_boundaries.md`
+- `docs/VENDOR_EXECUTION_GUARDRAILS.md`
 
 ---
 
@@ -112,14 +168,18 @@ Planes are solved from **user constraints**.
 
 Constraints may include:
 
-```
+```text
 vertex height
 edge height
 ```
 
 Minimum requirement for a plane:
 
-* **3 non-collinear constrained points**
+- **3 non-collinear constrained points**
+
+Validation details and product-surface expectations should match:
+- `docs/FEATURES.md`
+- `docs/TEST_STRATEGY.md`
 
 ---
 
@@ -127,17 +187,22 @@ Minimum requirement for a plane:
 
 ## Geometry engine
 
-* Must be **pure functions**
-* No UI dependencies
-* Deterministic outputs
+- Must be **pure functions**
+- No UI dependencies
+- Deterministic outputs
 
 Example modules:
 
-```
+```text
 fitPlane()
 solveRoofPlane()
 generateRoofMesh()
 ```
+
+If you change geometry behavior, update:
+- tests in the same PR
+- `docs/ARCHITECTURE.md` when boundaries change
+- `docs/DECISIONS.md` when a design rule changes
 
 ---
 
@@ -145,10 +210,16 @@ generateRoofMesh()
 
 UI only:
 
-* collects user constraints
-* displays geometry
+- collects user constraints
+- displays geometry
+- surfaces workflow state
+- delegates business logic
 
 UI must **never implement geometry logic**.
+
+For boundary expectations, see:
+- `docs/runtime_boundaries.md`
+- `docs/VENDOR_EXECUTION_GUARDRAILS.md`
 
 ---
 
@@ -158,12 +229,14 @@ Rendering must consume **solver outputs** only.
 
 Preferred architecture:
 
-```
+```text
 MapLibre
   + satellite tiles
   + 2D drawing layer
   + 3D mesh overlay
 ```
+
+Rendering must not redefine domain behavior.
 
 ---
 
@@ -171,54 +244,64 @@ MapLibre
 
 Reject geometry if:
 
-* footprint self-intersects
-* fewer than **3 vertices**
-* constraints insufficient to define plane
+- footprint self-intersects
+- fewer than **3 vertices**
+- constraints insufficient to define plane
 
 Warn if:
 
-* constraints over-constrain the system
-* solver must use least-squares plane fitting
+- constraints over-constrain the system
+- solver must use least-squares plane fitting
+
+Validation proof should be reflected in:
+- unit tests
+- high-risk interaction tests when UI behavior changes
+- `docs/TEST_STRATEGY.md`
 
 ---
 
-# Stage 1 scope (MVP)
+# Scope guidance
 
-Required:
+Current scope and out-of-scope areas must be checked against:
+- `docs/FEATURES.md`
+- `docs/VENDOR_HANDOVER.md`
 
-* satellite map (https://server.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer)
-* polygon footprint drawing
-* vertex height editing
-* edge height editing
-* single-plane roof generation
-* roof pitch calculation
-
-Not included:
-
-* multi-face roofs
-* terrain elevation
-* BIM modelling
-* CAD export
-* structural elements
+Do not infer scope from historical iteration notes alone.
 
 ---
 
-# Definition of done (Stage 1)
+# Definition of done
 
-A user can:
+A change is not done only because the code compiles.
 
-1. draw a footprint
-2. assign height constraints
-3. generate a dimension-accurate planar roof
-4. reload project and obtain identical geometry
+At minimum, contributors must ensure:
+
+- geometry solver remains deterministic
+- solver logic stays separate from UI
+- meshes are always regenerated from constraints
+- coordinate conversions remain explicit
+- changed behavior is covered by appropriate validation
+- affected docs are updated in the same PR
+- PR shape follows `docs/PR.md`
+
+For risky changes, done also requires proof aligned with:
+- `docs/TEST_STRATEGY.md`
+- `docs/RUNBOOK.md`
+- `docs/VENDOR_EXECUTION_GUARDRAILS.md`
 
 ---
 
-# Agent expectations
+# Contributor expectations
 
-Contributors must ensure:
+Contributors must not treat this repository like a generic front-end sandbox.
 
-* geometry solver remains deterministic
-* solver logic stays separate from UI
-* meshes are always regenerated from constraints
-* coordinate conversions remain explicit
+Before merging, ask:
+
+- Did I preserve canonical state rules?
+- Did I keep geometry logic out of UI?
+- Did I increase orchestration coupling?
+- Did I change browser/runtime assumptions?
+- Did I update the docs that now became stale?
+- Did I provide proof proportional to risk?
+
+If the answer is unclear, stop and read the docs above before continuing.
