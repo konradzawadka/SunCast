@@ -1,4 +1,5 @@
 import type { FootprintPolygon } from '../../types/geometry'
+import { HintTooltip } from './HintTooltip'
 
 interface FootprintPanelProps {
   footprints: FootprintPolygon[]
@@ -24,7 +25,12 @@ export function FootprintPanel({
   return (
     <section className="panel-section footprint-panel">
       <div className="panel-section-header">
-        <h3>Roof Polygons</h3>
+        <h3 className="panel-heading-with-hint">
+          Roof Polygons{' '}
+          <HintTooltip hint="Select one polygon with click. Add/remove polygon from selection with Ctrl/Cmd + click.">
+            ?
+          </HintTooltip>
+        </h3>
         <button
           type="button"
           onClick={() => {
@@ -32,12 +38,13 @@ export function FootprintPanel({
           }}
           disabled={footprints.length === 0}
           aria-label="Share project"
-          title="Share project"
+          title="Share project URL (clipboard or native share dialog)"
           data-testid="share-project-button"
         >
           Share
         </button>
       </div>
+      <p className="panel-hint">Tip: Ctrl/Cmd+A selects all polygons (except when typing in an input).</p>
       {footprints.length === 0 ? (
         <p>No roof polygons yet.</p>
       ) : (
@@ -51,6 +58,7 @@ export function FootprintPanel({
                 type="button"
                 className={`footprint-list-item${isSelected ? ' footprint-list-item-selected' : ''}${isActive ? ' footprint-list-item-active' : ''}`}
                 onClick={(event) => onSelectFootprint(footprint.id, event.ctrlKey || event.metaKey)}
+                title="Click to select. Ctrl/Cmd + click to multi-select."
               >
                 {footprint.id} ({footprint.kwp.toFixed(1)} kWp)
               </button>
@@ -73,13 +81,19 @@ export function FootprintPanel({
                 onSetActiveFootprintKwp(Math.max(0, next))
               }
             }}
+            title="Installed DC power for the active polygon in kWp."
             data-testid="active-footprint-kwp-input"
           />
         </label>
       ) : null}
 
       <div className="footprint-panel-actions">
-        <button type="button" disabled={!activeFootprintId} onClick={onDeleteActiveFootprint}>
+        <button
+          type="button"
+          disabled={!activeFootprintId}
+          onClick={onDeleteActiveFootprint}
+          title="Delete only the active polygon."
+        >
           Delete Active Footprint
         </button>
       </div>

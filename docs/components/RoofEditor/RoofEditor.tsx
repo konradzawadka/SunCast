@@ -52,7 +52,6 @@ export function RoofEditor({
     if (selectedEdgeIndex === null) {
       return
     }
-    setEdgeSectionOpen(true)
     const input = edgeInputRefs.current[selectedEdgeIndex]
     if (!input) {
       return
@@ -175,7 +174,10 @@ export function RoofEditor({
         </div>
       </div>
 
-      <details open={edgeSectionOpen} onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}>
+      <details
+        open={selectedEdgeIndex !== null || edgeSectionOpen}
+        onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}
+      >
         <summary>Edge Heights</summary>
         <div className="constraint-grid">
           {Array.from({ length: vertexCount }).map((_, idx) => {

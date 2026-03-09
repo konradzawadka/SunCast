@@ -53,13 +53,20 @@ export function MapOverlayControls({
       <div className="map-place-search">
         <PlaceSearchPanel onSelectResult={onPlaceSearchSelect} />
       </div>
-      <button type="button" className="map-orbit-toggle" onClick={onToggleOrbit} data-testid="orbit-toggle-button">
+      <button
+        type="button"
+        className="map-orbit-toggle"
+        onClick={onToggleOrbit}
+        title="Toggle orbit editing view for 3D interaction."
+        data-testid="orbit-toggle-button"
+      >
         {orbitEnabled ? 'Exit orbit' : 'Orbit'}
       </button>
       <button
         type="button"
         className="map-sun-perspective-toggle"
         onClick={onToggleSunPerspective}
+        title="Align camera to sun direction (requires orbit and computed sun position)."
         data-testid="sun-perspective-toggle-button"
         disabled={!orbitEnabled || !canUseSunPerspective}
       >
@@ -69,6 +76,7 @@ export function MapOverlayControls({
         type="button"
         className="map-debug-toggle"
         onClick={onToggleMeshesVisible}
+        title="Show/hide solved roof meshes in orbit mode."
         data-testid="mesh-visibility-toggle-button"
         disabled={!orbitEnabled}
       >
@@ -146,6 +154,7 @@ export function MapOverlayControls({
               inputMode="decimal"
               placeholder={drawingAngleHint.lengthM.toFixed(2)}
               value={drawLengthInput}
+              title="Set exact edge length (m). Press Enter to commit point."
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => onDrawLengthInputChange(event.target.value)}
               onKeyDown={(event) => {
@@ -168,6 +177,7 @@ export function MapOverlayControls({
             type="button"
             className="height-gizmo-button"
             onClick={(event) => onAdjustHeight(event.shiftKey ? HEIGHT_STEP_SHIFT_M : HEIGHT_STEP_M)}
+            title={`Increase selected geometry height (+${HEIGHT_STEP_M.toFixed(2)} m, Shift for +${HEIGHT_STEP_SHIFT_M.toFixed(2)} m).`}
           >
             ▲
           </button>
@@ -175,6 +185,7 @@ export function MapOverlayControls({
             type="button"
             className="height-gizmo-button"
             onClick={(event) => onAdjustHeight(event.shiftKey ? -HEIGHT_STEP_SHIFT_M : -HEIGHT_STEP_M)}
+            title={`Decrease selected geometry height (-${HEIGHT_STEP_M.toFixed(2)} m, Shift for -${HEIGHT_STEP_SHIFT_M.toFixed(2)} m).`}
           >
             ▼
           </button>

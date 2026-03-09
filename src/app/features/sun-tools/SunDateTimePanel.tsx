@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { Input } from '../../../components/ui/input'
 import { Label } from '../../../components/ui/label'
+import { HintTooltip } from '../../components/HintTooltip'
 
 interface SunDateTimePanelProps {
   datetimeIso: string
@@ -154,7 +155,13 @@ export function SunDateTimePanel({ datetimeIso, timeZone, onDatetimeInputChange 
 
   return (
     <section className="panel-section">
-      <h3>Sun Date & Time</h3>
+      <h3 className="panel-heading-with-hint">
+        Sun Date & Time{' '}
+        <HintTooltip hint="Arrow Up/Down changes day. Shift + Arrow Up/Down changes hour while preserving timezone offset.">
+          ?
+        </HintTooltip>
+      </h3>
+      <p className="panel-hint">Tip: Use keyboard arrows in the input to quickly step through time.</p>
       <div className="sun-controls">
         <Label className="sun-datetime-label" htmlFor="sun-datetime-input">
           Datetime ISO ({timeZone})
@@ -166,6 +173,7 @@ export function SunDateTimePanel({ datetimeIso, timeZone, onDatetimeInputChange 
           onChange={(event) => onDatetimeInputChange(event.target.value)}
           onKeyDown={onInputKeyDown}
           placeholder="2026-03-05T14:30:00+01:00"
+          title="Datetime with timezone offset, e.g. 2026-03-05T14:30:00+01:00"
           data-testid="sun-datetime-input"
         />
       </div>

@@ -57,6 +57,7 @@ export function useOrbitCamera({
 
     return null
   }, [activeFootprint, orbitEnabled, selectedEdgeIndex, selectedVertexIndex])
+  const hasGizmoAnchor = orbitEnabled && gizmoAnchor !== null
 
   const adjustOrbitCamera = useCallback(
     (bearingDeltaDeg: number, pitchDeltaDeg: number) => {
@@ -143,7 +144,6 @@ export function useOrbitCamera({
   useEffect(() => {
     const map = mapRef.current
     if (!map || !gizmoAnchor || !orbitEnabled) {
-      setGizmoScreenPos(null)
       return
     }
 
@@ -168,5 +168,5 @@ export function useOrbitCamera({
     }
   }, [gizmoAnchor, mapRef, orbitEnabled])
 
-  return { gizmoScreenPos, adjustOrbitCamera, setOrbitCameraPose }
+  return { gizmoScreenPos: hasGizmoAnchor ? gizmoScreenPos : null, adjustOrbitCamera, setOrbitCameraPose }
 }

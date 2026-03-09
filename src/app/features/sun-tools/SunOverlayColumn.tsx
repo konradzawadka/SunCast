@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { AnnualDayProfilePanel } from './AnnualDayProfilePanel'
 import { ForecastPvPanel } from './ForecastPvPanel'
 import { MonthlyProductionPanel } from './MonthlyProductionPanel'
@@ -34,26 +34,20 @@ export function SunOverlayColumn({
   productionComputationEnabled,
   expanded,
 }: SunOverlayColumnProps) {
-  const [collapsed, setCollapsed] = useState(true)
-
-  useEffect(() => {
-    if (expanded === undefined) {
-      return
-    }
-    setCollapsed(!expanded)
-  }, [expanded])
+  const [collapsed, setCollapsed] = useState(() => (expanded === undefined ? true : !expanded))
+  const isCollapsed = expanded === undefined ? collapsed : !expanded
 
   return (
-    <aside className={`sun-overlay-column${collapsed ? ' sun-overlay-column-collapsed' : ''}`}>
+    <aside className={`sun-overlay-column${isCollapsed ? ' sun-overlay-column-collapsed' : ''}`}>
       <button
         type="button"
         className="sun-overlay-toggle"
         onClick={() => setCollapsed((current) => !current)}
         data-testid="sun-overlay-toggle"
       >
-        {collapsed ? 'Sun tools' : 'Hide'}
+        {isCollapsed ? 'Sun tools' : 'Hide'}
       </button>
-      {!collapsed && (
+      {!isCollapsed && (
         <div className="sun-overlay-content">
           <SunDateTimePanel datetimeIso={datetimeIso} timeZone={timeZone} onDatetimeInputChange={onDatetimeInputChange} />
           <ForecastPvPanel

@@ -73,6 +73,12 @@ body {
   margin-top: 0;
 }
 
+.panel-heading-with-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .panel-section-header {
   display: flex;
   align-items: center;
@@ -98,6 +104,29 @@ body {
 .panel-section summary {
   cursor: pointer;
   margin-bottom: 8px;
+}
+
+.panel-hint {
+  margin: 0;
+  color: #acc0c8;
+  font-size: 0.82rem;
+}
+
+.hint-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #4a626b;
+  border-radius: 999px;
+  color: #b9c8cd;
+  background: rgba(14, 20, 22, 0.92);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
 }
 
 .footprint-list {

@@ -80,6 +80,10 @@ export function MapView({
   const [sunPerspectiveEnabled, setSunPerspectiveEnabled] = useState(false)
   const [drawLengthInput, setDrawLengthInput] = useState('')
   const [constrainedDrawLengthM, setConstrainedDrawLengthM] = useState<number | null>(null)
+  const effectiveDrawLengthInput = isDrawing ? drawLengthInput : ''
+  const effectiveConstrainedDrawLengthM = isDrawing ? constrainedDrawLengthM : null
+  const canUseSunPerspective = orbitEnabled && sunProjectionResult !== null
+  const effectiveSunPerspectiveEnabled = canUseSunPerspective && sunPerspectiveEnabled
 
   const parseDrawLengthInput = useCallback(() => {
     const trimmed = drawLengthInput.trim()
@@ -162,15 +166,8 @@ export function MapView({
     mapRef,
     mapLoaded,
     refs: interactionRefs,
-    constrainedDrawLengthM: isDrawing ? constrainedDrawLengthM : null,
+    constrainedDrawLengthM: effectiveConstrainedDrawLengthM,
   })
-
-  useEffect(() => {
-    if (!isDrawing) {
-      setDrawLengthInput('')
-      setConstrainedDrawLengthM(null)
-    }
-  }, [isDrawing])
 
   useEffect(() => {
     if (!isDrawing || orbitEnabled || !drawingAngleHint) {
@@ -239,20 +236,14 @@ export function MapView({
   }, [meshesVisible, orbitEnabled, roofLayerRef])
 
   useEffect(() => {
-    if (!orbitEnabled || !sunProjectionResult) {
-      setSunPerspectiveEnabled(false)
-    }
-  }, [orbitEnabled, sunProjectionResult])
-
-  useEffect(() => {
-    if (!orbitEnabled || !sunPerspectiveEnabled || !sunProjectionResult) {
+    if (!effectiveSunPerspectiveEnabled || !sunProjectionResult) {
       return
     }
 
     const normalizedBearingDeg = ((sunProjectionResult.sunAzimuthDeg + 180 + 540) % 360) - 180
     const pitchDeg = 90 - sunProjectionResult.sunElevationDeg
     setOrbitCameraPose(normalizedBearingDeg, pitchDeg)
-  }, [orbitEnabled, setOrbitCameraPose, sunPerspectiveEnabled, sunProjectionResult])
+  }, [effectiveSunPerspectiveEnabled, setOrbitCameraPose, sunProjectionResult])
 
   useEffect(() => {
     if (!mapLoaded || !mapNavigationTarget) {
@@ -281,9 +272,14 @@ export function MapView({
       <MapOverlayControls
         orbitEnabled={orbitEnabled}
         onToggleOrbit={onToggleOrbit}
-        sunPerspectiveEnabled={sunPerspectiveEnabled}
-        canUseSunPerspective={sunProjectionResult !== null}
-        onToggleSunPerspective={() => setSunPerspectiveEnabled((enabled) => !enabled)}
+        sunPerspectiveEnabled={effectiveSunPerspectiveEnabled}
+        canUseSunPerspective={canUseSunPerspective}
+        onToggleSunPerspective={() => {
+          if (!canUseSunPerspective) {
+            return
+          }
+          setSunPerspectiveEnabled((enabled) => !enabled)
+        }}
         meshesVisible={meshesVisible}
         onToggleMeshesVisible={() => setMeshesVisible((visible) => !visible)}
         roofMeshesCount={roofMeshes.length}
@@ -291,7 +287,7 @@ export function MapView({
         hasActiveFootprint={activeFootprint !== null}
         hoveredEdgeLength={hoveredEdgeLength}
         drawingAngleHint={drawingAngleHint}
-        drawLengthInput={drawLengthInput}
+        drawLengthInput={effectiveDrawLengthInput}
         onDrawLengthInputChange={setDrawLengthInput}
         onDrawLengthInputSubmit={submitDrawLengthInput}
         gizmoScreenPos={gizmoScreenPos}

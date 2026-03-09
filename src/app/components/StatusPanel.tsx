@@ -1,5 +1,6 @@
 import type { SolverWarning } from '../../types/geometry'
 import { useEffect, useState } from 'react'
+import { HintTooltip } from './HintTooltip'
 
 const MIN_PITCH_ADJUSTMENT_PERCENT = -90
 const MAX_PITCH_ADJUSTMENT_PERCENT = 200
@@ -54,7 +55,12 @@ export function StatusPanel({
 
   return (
     <section className="panel-section">
-      <h3>Status</h3>
+      <h3 className="panel-heading-with-hint">
+        Status{' '}
+        <HintTooltip hint="Status updates after solving constraints. Pitch adjustment is a what-if slider and does not edit constraints.">
+          ?
+        </HintTooltip>
+      </h3>
       {footprintErrors.map((error) => (
         <p key={error} className="status-error">
           {error}
@@ -85,6 +91,7 @@ export function StatusPanel({
                 min={MIN_PITCH_ADJUSTMENT_PERCENT}
                 max={MAX_PITCH_ADJUSTMENT_PERCENT}
                 value={pitchAdjustmentInput}
+                title="What-if pitch scaling relative to solved plane pitch."
                 onChange={(event) => {
                   const { value } = event.target
                   setPitchAdjustmentInput(value)

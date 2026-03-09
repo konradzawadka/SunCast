@@ -42,15 +42,17 @@ export function useForecastPv({
 
   useEffect(() => {
     if (!hasForecastInputs || !selectedDateIso || selectedRoofs.length === 0) {
-      setForecastPoints([])
-      setForecastError(null)
-      setIsForecastLoading(false)
       return
     }
 
     const abortController = new AbortController()
-    setIsForecastLoading(true)
-    setForecastError(null)
+    queueMicrotask(() => {
+      if (abortController.signal.aborted) {
+        return
+      }
+      setIsForecastLoading(true)
+      setForecastError(null)
+    })
 
     Promise.allSettled(
       selectedRoofs.map(async (roof) => {
@@ -98,13 +100,17 @@ export function useForecastPv({
     }
   }, [hasForecastInputs, selectedDateIso, selectedRoofs])
 
+  const effectiveIsForecastLoading = hasForecastInputs ? isForecastLoading : false
+  const effectiveForecastError = hasForecastInputs ? forecastError : null
+  const effectiveForecastPoints = hasForecastInputs ? forecastPoints : []
+
   return {
     selectedDateIso,
     selectedCount,
     hasForecastInputs,
-    isForecastLoading,
-    forecastError,
-    forecastPoints,
+    isForecastLoading: effectiveIsForecastLoading,
+    forecastError: effectiveForecastError,
+    forecastPoints: effectiveForecastPoints,
     totalSelectedKwp,
   }
 }

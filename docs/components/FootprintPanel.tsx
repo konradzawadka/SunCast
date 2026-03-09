@@ -32,12 +32,15 @@ export function FootprintPanel({
           }}
           disabled={footprints.length === 0}
           aria-label="Share project"
-          title="Share project"
+          title="Share project URL (clipboard or native share dialog)"
           data-testid="share-project-button"
         >
           Share
         </button>
       </div>
+      <p style={{ margin: 0, color: '#99acb3', fontSize: '0.84rem' }}>
+        Tip: Ctrl/Cmd+Click multi-selects polygons. Ctrl/Cmd+A selects all.
+      </p>
       {footprints.length === 0 ? (
         <p>No roof polygons yet.</p>
       ) : (
@@ -51,6 +54,7 @@ export function FootprintPanel({
                 type="button"
                 className={`footprint-list-item${isSelected ? ' footprint-list-item-selected' : ''}${isActive ? ' footprint-list-item-active' : ''}`}
                 onClick={(event) => onSelectFootprint(footprint.id, event.ctrlKey || event.metaKey)}
+                title="Click to select. Ctrl/Cmd + click to multi-select."
               >
                 {footprint.id} ({footprint.kwp.toFixed(1)} kWp)
               </button>
@@ -73,12 +77,18 @@ export function FootprintPanel({
                 onSetActiveFootprintKwp(Math.max(0, next))
               }
             }}
+            title="Installed DC power for the active polygon in kWp."
             data-testid="active-footprint-kwp-input"
           />
         </label>
       ) : null}
 
-      <button type="button" disabled={!activeFootprintId} onClick={onDeleteActiveFootprint}>
+      <button
+        type="button"
+        disabled={!activeFootprintId}
+        onClick={onDeleteActiveFootprint}
+        title="Delete only the active polygon."
+      >
         Delete Active Footprint
       </button>
     </section>

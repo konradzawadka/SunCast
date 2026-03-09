@@ -3,6 +3,7 @@ import { act } from 'react'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 import { createRoot } from 'react-dom/client'
+import { useEffect, useRef } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProjectState } from '../../state/project-store/projectState.types'
 import type { FaceConstraints } from '../../types/geometry'
@@ -65,10 +66,16 @@ function renderController() {
   const container = document.createElement('div')
   document.body.appendChild(container)
   const root = createRoot(container)
-  let latest: ReturnType<typeof useSunCastController> | null = null
+  const latestRef: { current: ReturnType<typeof useSunCastController> | null } = { current: null }
 
   function HookProbe() {
-    latest = useSunCastController()
+    const latest = useSunCastController()
+    const sharedRef = useRef(latestRef)
+
+    useEffect(() => {
+      sharedRef.current.current = latest
+    }, [latest, sharedRef])
+
     return null
   }
 
@@ -78,10 +85,10 @@ function renderController() {
 
   return {
     get: () => {
-      if (!latest) {
+      if (!latestRef.current) {
         throw new Error('Hook did not render')
       }
-      return latest
+      return latestRef.current
     },
     unmount: () => {
       act(() => {

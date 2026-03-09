@@ -18,11 +18,13 @@ export function PlaceSearchPanel({ onSelectResult }: PlaceSearchPanelProps) {
 
   return (
     <section className="panel-section" data-testid="place-search-panel">
+      <p className="panel-hint">Tip: Enter at least 3 characters to search places.</p>
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Search address or place"
         aria-label="Search address or place"
+        title="Search by address, city, or point of interest."
         data-testid="place-search-input"
       />
       <div className="place-search-results" data-testid="place-search-results">
@@ -37,6 +39,7 @@ export function PlaceSearchPanel({ onSelectResult }: PlaceSearchPanelProps) {
                   type="button"
                   onClick={() => onSelect(result)}
                   className="place-search-result-button"
+                  title="Center map on this place."
                   data-testid={`place-search-result-${index}`}
                 >
                   {result.label}

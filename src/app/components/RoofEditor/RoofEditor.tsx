@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FootprintPolygon, VertexHeightConstraint } from '../../../types/geometry'
+import { HintTooltip } from '../HintTooltip'
 
 interface RoofEditorProps {
   footprint: FootprintPolygon | null
@@ -52,7 +53,6 @@ export function RoofEditor({
     if (selectedEdgeIndex === null) {
       return
     }
-    setEdgeSectionOpen(true)
     const input = edgeInputRefs.current[selectedEdgeIndex]
     if (!input) {
       return
@@ -64,7 +64,10 @@ export function RoofEditor({
   if (!footprint) {
     return (
       <section className="panel-section">
-        <h3>Constraints</h3>
+        <h3 className="panel-heading-with-hint">
+          Constraints{' '}
+          <HintTooltip hint="Select a roof polygon first, then set vertex or edge heights to solve the plane.">?</HintTooltip>
+        </h3>
         <p>Draw a roof polygon first.</p>
       </section>
     )
@@ -110,8 +113,12 @@ export function RoofEditor({
 
   return (
     <section className="panel-section">
-      <h3>Constraints</h3>
+      <h3 className="panel-heading-with-hint">
+        Constraints{' '}
+        <HintTooltip hint="At least 3 non-collinear constrained points are needed to solve a roof plane.">?</HintTooltip>
+      </h3>
       <p>Set at least 3 vertex heights in meters. Edge edit sets both endpoint vertices and can auto-seed a third point.</p>
+      <p className="panel-hint">Tip: Click a vertex/edge on the map to focus the matching input row.</p>
       <p>
         Active constraints:{' '}
         {activeConstraints.length > 0 ? activeConstraints.join(', ') : 'none'}
@@ -138,6 +145,7 @@ export function RoofEditor({
                 step="0.01"
                 placeholder={current !== undefined ? current.toFixed(2) : 'm'}
                 value={textValue}
+                title={`Vertex V${idx} height in meters.`}
                 onChange={(event) =>
                   setVertexInputs((prev) => ({
                     ...prev,
@@ -158,6 +166,7 @@ export function RoofEditor({
                 type="button"
                 data-testid={`vertex-height-set-${idx}`}
                 onClick={() => applyVertexInput(idx, textValue)}
+                title={`Apply height to vertex V${idx}.`}
               >
                 Set
               </button>
@@ -166,6 +175,7 @@ export function RoofEditor({
                 onClick={() => onClearVertex(idx)}
                 disabled={current === undefined}
                 data-testid={`vertex-height-clear-${idx}`}
+                title={`Clear height on vertex V${idx}.`}
               >
                 Clear
               </button>
@@ -175,7 +185,10 @@ export function RoofEditor({
         </div>
       </div>
 
-      <details open={edgeSectionOpen} onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}>
+      <details
+        open={selectedEdgeIndex !== null || edgeSectionOpen}
+        onToggle={(event) => setEdgeSectionOpen(event.currentTarget.open)}
+      >
         <summary>Edge Heights</summary>
         <div className="constraint-grid">
           {Array.from({ length: vertexCount }).map((_, idx) => {
@@ -202,6 +215,7 @@ export function RoofEditor({
                   step="0.01"
                   placeholder={current !== undefined ? current.toFixed(2) : 'm'}
                   value={textValue}
+                  title={`Set a shared height for edge E${idx} endpoints.`}
                   onChange={(event) =>
                     setEdgeInputs((prev) => ({
                       ...prev,
@@ -222,6 +236,7 @@ export function RoofEditor({
                   type="button"
                   data-testid={`edge-height-set-${idx}`}
                   onClick={() => applyEdgeInput(idx, textValue)}
+                  title={`Apply height to edge E${idx} endpoints.`}
                 >
                   Set
                 </button>
@@ -230,6 +245,7 @@ export function RoofEditor({
                   onClick={() => onClearEdge(idx)}
                   disabled={startHeight === undefined && endHeight === undefined}
                   data-testid={`edge-height-clear-${idx}`}
+                  title={`Clear any heights on edge E${idx} endpoints.`}
                 >
                   Clear
                 </button>

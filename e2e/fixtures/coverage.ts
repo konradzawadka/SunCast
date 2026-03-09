@@ -18,8 +18,8 @@ async function savePageCoverage(page: Page, pageIndex: number, testId: string) {
 }
 
 export const test = base.extend({
-  page: async ({ page }, use, testInfo) => {
-    await use(page)
+  page: async ({ page }, fixtureDone, testInfo) => {
+    await fixtureDone(page)
 
     if (process.env.PW_COVERAGE !== '1') {
       return
