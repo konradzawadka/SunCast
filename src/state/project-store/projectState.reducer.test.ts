@@ -137,7 +137,7 @@ describe('projectStateReducer', () => {
 
     expect(state.obstacles[obstacleId ?? ''].heightAboveGroundM).toBe(12)
     expect(state.obstacles[obstacleId ?? ''].kind).toBe('tree')
-    expect(state.obstacles[obstacleId ?? ''].polygon[1]).toEqual([3, 1.5])
+    expect(state.obstacles[obstacleId ?? ''].shape.type).toBe('tree')
 
     state = projectStateReducer(state, { type: 'DELETE_OBSTACLE', obstacleId: obstacleId ?? '' })
     expect(state.activeObstacleId).toBeNull()

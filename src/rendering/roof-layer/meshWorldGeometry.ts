@@ -6,7 +6,7 @@ export interface WorldPoint {
   z: number
 }
 
-export interface RoofWorldMeshGeometry {
+export interface WorldMeshGeometry {
   triangleIndices: number[]
   topVertices: WorldPoint[]
   baseVertices: WorldPoint[]
@@ -16,11 +16,11 @@ export interface RoofWorldMeshGeometry {
 const EARTH_CIRCUMFERENCE_M = 40075016.68557849
 const DEG_TO_RAD = Math.PI / 180
 
-function lonToMercatorX(lonDeg: number): number {
+export function lonToMercatorX(lonDeg: number): number {
   return (lonDeg + 180) / 360
 }
 
-function latToMercatorY(latDeg: number): number {
+export function latToMercatorY(latDeg: number): number {
   const latRad = latDeg * DEG_TO_RAD
   const mercN = Math.log(Math.tan(Math.PI * 0.25 + latRad * 0.5))
   return (1 - mercN / Math.PI) * 0.5
@@ -30,7 +30,7 @@ function meterInMercatorCoordinateUnits(latDeg: number): number {
   return 1 / (EARTH_CIRCUMFERENCE_M * Math.cos(latDeg * DEG_TO_RAD))
 }
 
-export function buildRoofWorldGeometry(mesh: RoofMeshData, zExaggeration = 1): RoofWorldMeshGeometry | null {
+export function buildWorldMeshGeometry(mesh: RoofMeshData, zExaggeration = 1): WorldMeshGeometry | null {
   if (mesh.vertices.length < 3) {
     return null
   }

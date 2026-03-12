@@ -32,11 +32,14 @@ function createState(): Pick<
       ob1: {
         id: 'ob1',
         kind: 'building',
-        polygon: [
-          [11, 11],
-          [12, 11],
-          [12, 12],
-        ],
+        shape: {
+          type: 'polygon-prism',
+          polygon: [
+            [11, 11],
+            [12, 11],
+            [12, 12],
+          ],
+        },
         heightAboveGroundM: 9,
       },
     },

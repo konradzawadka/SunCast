@@ -1,10 +1,10 @@
 import type {
   FootprintPolygon,
-  ObstaclePolygon,
   ObstacleStateEntry,
   ProjectSunProjectionSettings,
   ShadingSettings,
 } from '../../types/geometry'
+import { createObstacleShapeForKind, withMovedObstacleShapeVertex, withObstacleKind } from '../../geometry/obstacles/obstacleModels'
 import { sanitizeLoadedState } from './projectState.sanitize'
 import { sanitizeVertexHeights, setOrReplaceVertexConstraint } from './projectState.constraints'
 import type { Action, FootprintStateEntry, ProjectState } from './projectState.types'
@@ -407,14 +407,10 @@ export function projectStateReducer(state: ProjectState, action: Action): Projec
       }
 
       const obstacleId = generateObstacleId()
-      const polygon: ObstaclePolygon = {
-        id: obstacleId,
-        vertices: state.obstacleDrawDraft,
-      }
       const obstacle: ObstacleStateEntry = {
         id: obstacleId,
         kind: 'custom',
-        polygon: polygon.vertices,
+        shape: createObstacleShapeForKind('custom', state.obstacleDrawDraft),
         heightAboveGroundM: DEFAULT_OBSTACLE_HEIGHT_M,
       }
 
@@ -490,24 +486,11 @@ export function projectStateReducer(state: ProjectState, action: Action): Projec
           : entry.heightAboveGroundM,
       }))
     case 'SET_OBSTACLE_KIND':
-      return applyToObstacle(state, action.payload.obstacleId, (entry) => ({
-        ...entry,
-        kind: action.payload.kind,
-      }))
+      return applyToObstacle(state, action.payload.obstacleId, (entry) => withObstacleKind(entry, action.payload.kind))
     case 'MOVE_OBSTACLE_VERTEX':
-      return applyToObstacle(state, action.payload.obstacleId, (entry) => {
-        const vertexCount = entry.polygon.length
-        const { vertexIndex, point } = action.payload
-        if (vertexIndex < 0 || vertexIndex >= vertexCount) {
-          return entry
-        }
-        const nextVertices = [...entry.polygon]
-        nextVertices[vertexIndex] = point
-        return {
-          ...entry,
-          polygon: nextVertices,
-        }
-      })
+      return applyToObstacle(state, action.payload.obstacleId, (entry) =>
+        withMovedObstacleShapeVertex(entry, action.payload.vertexIndex, action.payload.point),
+      )
     case 'SET_SHADING_ENABLED':
       return {
         ...state,

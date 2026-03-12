@@ -3,6 +3,7 @@ import type { LocalOrigin } from '../projection/localMeters'
 import { lonLatToLocalMeters } from '../projection/localMeters'
 import type { ObstaclePrism, Point3, ShadingObstacleInput, Triangle3 } from './types'
 import { bboxFromPoints } from './shadowProjection'
+import { cylinderToPolygon } from '../obstacles/obstacleModels'
 
 export function createPrismTriangles(polygonLocal: Array<{ x: number; y: number }>, topZ: number): Triangle3[] {
   const triangles: Triangle3[] = []
@@ -40,15 +41,16 @@ export function normalizeObstaclesToPrisms(origin: LocalOrigin, obstacles: Shadi
   const prisms: ObstaclePrism[] = []
 
   for (const obstacle of obstacles) {
-    if (!Array.isArray(obstacle.polygon) || obstacle.polygon.length < 3) {
-      continue
-    }
-
     const heightAboveGroundM = Number.isFinite(obstacle.heightAboveGroundM)
       ? Math.max(0, obstacle.heightAboveGroundM)
       : 0
 
-    const polygonLocal = obstacle.polygon.map((point) => lonLatToLocalMeters(origin, point))
+    const obstaclePolygon = obstacle.shape === 'prism' ? obstacle.polygon : cylinderToPolygon(obstacle.center, obstacle.radiusM)
+    if (obstaclePolygon.length < 3) {
+      continue
+    }
+
+    const polygonLocal = obstaclePolygon.map((point) => lonLatToLocalMeters(origin, point))
 
     prisms.push({
       id: obstacle.id,

@@ -1,6 +1,6 @@
 import earcut from 'earcut'
 import type { RoofMeshData, RoofShadeHeatmapFeature } from '../../types/geometry'
-import { buildRoofWorldGeometry, latToMercatorY, lonToMercatorX, type RoofWorldMeshGeometry, type WorldPoint } from './roofWorldGeometry'
+import { buildWorldMeshGeometry, latToMercatorY, lonToMercatorX, type WorldMeshGeometry, type WorldPoint } from './meshWorldGeometry'
 
 const BARYCENTRIC_TOLERANCE = 1e-6
 const HEATMAP_RENDER_EPSILON_M = 0.08
@@ -13,7 +13,7 @@ interface WorldTriangle {
 
 interface RoofWorldIndex {
   meshId: string | null
-  world: RoofWorldMeshGeometry
+  world: WorldMeshGeometry
   triangles: WorldTriangle[]
   bbox: {
     minX: number
@@ -91,7 +91,7 @@ function barycentricWeights(
   return [weightA, weightB, weightC]
 }
 
-function triangleList(world: RoofWorldMeshGeometry): WorldTriangle[] {
+function triangleList(world: WorldMeshGeometry): WorldTriangle[] {
   const triangles: WorldTriangle[] = []
 
   for (let i = 0; i < world.triangleIndices.length; i += 3) {
@@ -115,7 +115,7 @@ function triangleList(world: RoofWorldMeshGeometry): WorldTriangle[] {
   return triangles
 }
 
-function worldBoundingBox(world: RoofWorldMeshGeometry): RoofWorldIndex['bbox'] {
+function worldBoundingBox(world: WorldMeshGeometry): RoofWorldIndex['bbox'] {
   let minX = world.topVertices[0].x
   let minY = world.topVertices[0].y
   let maxX = world.topVertices[0].x
@@ -199,7 +199,7 @@ function toRoofWorldIndex(meshes: RoofMeshData[], zExaggeration: number): RoofWo
   const roofs: RoofWorldIndex[] = []
 
   for (const mesh of meshes) {
-    const world = buildRoofWorldGeometry(mesh, zExaggeration)
+    const world = buildWorldMeshGeometry(mesh, zExaggeration)
     if (!world) {
       continue
     }

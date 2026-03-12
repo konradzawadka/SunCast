@@ -70,15 +70,15 @@ export interface ProjectSunProjectionSettings {
 
 export type ObstacleKind = 'building' | 'tree' | 'pole' | 'custom'
 
-export interface ObstaclePolygon {
-  id: string
-  vertices: LngLat[]
-}
+export type ObstacleShape =
+  | { type: 'polygon-prism'; polygon: LngLat[] }
+  | { type: 'cylinder'; center: LngLat; radiusM: number }
+  | { type: 'tree'; center: LngLat; crownRadiusM: number; trunkRadiusM: number }
 
 export interface ObstacleStateEntry {
   id: string
   kind: ObstacleKind
-  polygon: LngLat[]
+  shape: ObstacleShape
   heightAboveGroundM: number
   label?: string
 }
@@ -97,9 +97,27 @@ export interface StoredFootprint {
 }
 
 export interface RoofMeshData {
+  id?: string
   vertices: Array<{ lon: number; lat: number; z: number }>
   triangleIndices: number[]
 }
+
+export type ObstacleMeshData = RoofMeshData
+
+export interface RoofHeatmapFeature {
+  type: 'Feature'
+  properties: {
+    roofId: string
+    shade: 0 | 1
+    intensity: number
+  }
+  geometry: {
+    type: 'Polygon'
+    coordinates: number[][][]
+  }
+}
+
+export type RoofShadeHeatmapFeature = RoofHeatmapFeature
 
 export interface RoofMetrics {
   pitchDeg: number

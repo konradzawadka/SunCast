@@ -52,8 +52,12 @@ function allRoofAndObstaclePoints(input: ComputeRoofShadeGridInput): Array<[numb
   }
 
   for (const obstacle of input.obstacles) {
-    for (const point of obstacle.polygon) {
-      points.push(point)
+    if (obstacle.shape === 'prism') {
+      for (const point of obstacle.polygon) {
+        points.push(point)
+      }
+    } else {
+      points.push(obstacle.center)
     }
   }
 

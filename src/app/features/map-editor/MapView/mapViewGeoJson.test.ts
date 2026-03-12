@@ -47,11 +47,12 @@ describe('mapViewGeoJson', () => {
         {
           id: 'ob-1',
           kind: 'tree',
-          polygon: [
-            [1, 1],
-            [2, 1],
-            [2, 2],
-          ],
+          shape: {
+            type: 'tree',
+            center: [1.5, 1.5],
+            crownRadiusM: 1.2,
+            trunkRadiusM: 0.3,
+          },
           heightAboveGroundM: 8,
         },
       ],

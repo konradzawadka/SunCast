@@ -24,6 +24,8 @@ describe('obstacleVolumes', () => {
     const prisms = normalizeObstaclesToPrisms(origin, [
       {
         id: 'ob-1',
+        kind: 'building',
+        shape: 'prism',
         polygon,
         heightAboveGroundM: 8,
       },
@@ -34,5 +36,25 @@ describe('obstacleVolumes', () => {
     expect(prisms[0].triangles.length).toBeGreaterThanOrEqual(10)
     expect(prisms[0].bbox.maxX).toBeGreaterThan(prisms[0].bbox.minX)
     expect(prisms[0].bbox.maxY).toBeGreaterThan(prisms[0].bbox.minY)
+  })
+
+  it('normalizes cylinder obstacle volumes to local prisms', () => {
+    const center: [number, number] = [offsetLon(0, 10), offsetLat(0, 10)]
+    const origin = buildLocalOrigin([center])
+
+    const prisms = normalizeObstaclesToPrisms(origin, [
+      {
+        id: 'ob-cylinder',
+        kind: 'pole',
+        shape: 'cylinder',
+        center,
+        radiusM: 0.4,
+        heightAboveGroundM: 5,
+      },
+    ])
+
+    expect(prisms).toHaveLength(1)
+    expect(prisms[0].triangles.length).toBeGreaterThan(0)
+    expect(prisms[0].heightAboveGroundM).toBe(5)
   })
 })

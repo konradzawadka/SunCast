@@ -1,4 +1,5 @@
 import maplibregl from 'maplibre-gl'
+import { obstacleShapeToPolygon } from '../../../../geometry/obstacles/obstacleModels'
 import { projectPointsToLocalMeters } from '../../../../geometry/projection/localMeters'
 import type { FootprintPolygon, ObstacleStateEntry, VertexHeightConstraint } from '../../../../types/geometry'
 import {
@@ -92,8 +93,9 @@ export function toObstacleFeatures(
   selectedObstacleIds: Set<string>,
 ): GeoJSON.Feature<GeoJSON.Polygon>[] {
   return obstacles
-    .filter((obstacle) => obstacle.polygon.length >= 3)
-    .map((obstacle) => ({
+    .map((obstacle) => ({ obstacle, polygon: obstacleShapeToPolygon(obstacle.shape) }))
+    .filter(({ polygon }) => polygon.length >= 3)
+    .map(({ obstacle, polygon }) => ({
       type: 'Feature',
       properties: {
         obstacleId: obstacle.id,
@@ -104,7 +106,7 @@ export function toObstacleFeatures(
       },
       geometry: {
         type: 'Polygon',
-        coordinates: [toRing(obstacle.polygon)],
+        coordinates: [toRing(polygon)],
       },
     }))
 }
@@ -190,11 +192,11 @@ export function toEdgeHeightLabelFeatures(
 export function toObstacleVertexSourceFeatures(
   obstacle: ObstacleStateEntry | null,
 ): GeoJSON.Feature<GeoJSON.Point>[] {
-  if (!obstacle) {
+  if (!obstacle || obstacle.shape.type !== 'polygon-prism') {
     return []
   }
 
-  return obstacle.polygon.map((vertex, idx) => ({
+  return obstacle.shape.polygon.map((vertex, idx) => ({
     type: 'Feature',
     properties: {
       obstacleId: obstacle.id,

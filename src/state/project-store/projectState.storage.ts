@@ -16,7 +16,9 @@ function normalizeStoredObstacles(
     (obstacle): obstacle is NonNullable<ProjectData['obstacles']>[string] =>
       Boolean(obstacle) &&
       typeof obstacle.id === 'string' &&
-      Array.isArray(obstacle.polygon) &&
+      (typeof obstacle.shape === 'object' ||
+        // backward compatibility for legacy payloads; reducer sanitize upgrades this
+        Array.isArray((obstacle as { polygon?: unknown }).polygon)) &&
       Number.isFinite(obstacle.heightAboveGroundM),
   )
 

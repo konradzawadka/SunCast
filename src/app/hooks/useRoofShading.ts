@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { computeRoofShadeGrid, type ComputeRoofShadeGridInput, type ComputeRoofShadeGridResult } from '../../geometry/shading'
 import type { RoofShadeDiagnostics, ShadingObstacleInput, ShadingRoofInput } from '../../geometry/shading/types'
+import { toShadingObstacleVolume } from '../../geometry/obstacles/obstacleModels'
 import type { ObstacleStateEntry } from '../../types/geometry'
 
 export interface ShadeHeatmapFeature {
@@ -61,8 +62,14 @@ function roofFingerprint(roof: ShadingRoofInput): string {
 }
 
 function obstacleFingerprint(obstacle: ShadingObstacleInput): string {
-  const vertices = obstacle.polygon.map(toPointFingerprint).join(';')
-  return `${obstacle.id}|${obstacle.kind}|${obstacle.heightAboveGroundM.toFixed(3)}|${vertices}`
+  if (obstacle.shape === 'prism') {
+    const vertices = obstacle.polygon.map(toPointFingerprint).join(';')
+    return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${vertices}`
+  }
+
+  return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${toPointFingerprint(
+    obstacle.center,
+  )}|${obstacle.radiusM.toFixed(3)}`
 }
 
 function createRequestKey(request: RoofShadingRequest): string {
@@ -143,12 +150,7 @@ function makeRequest(args: UseRoofShadingArgs): RoofShadingRequest | null {
   const payload: ComputeRoofShadeGridInput = {
     datetimeIso: args.datetimeIso,
     roofs: args.roofs,
-    obstacles: args.obstacles.map((obstacle) => ({
-      id: obstacle.id,
-      kind: obstacle.kind,
-      polygon: obstacle.polygon,
-      heightAboveGroundM: obstacle.heightAboveGroundM,
-    })),
+    obstacles: args.obstacles.map(toShadingObstacleVolume),
     gridResolutionM: usedGridResolutionM,
   }
 

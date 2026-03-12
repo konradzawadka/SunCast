@@ -7,12 +7,15 @@ describe('generateObstacleMesh', () => {
     const obstacle: ObstacleStateEntry = {
       id: 'obstacle-1',
       kind: 'building',
-      polygon: [
-        [20.0, 52.0],
-        [20.00015, 52.0],
-        [20.00015, 52.00015],
-        [20.0, 52.00015],
-      ],
+      shape: {
+        type: 'polygon-prism',
+        polygon: [
+          [20.0, 52.0],
+          [20.00015, 52.0],
+          [20.00015, 52.00015],
+          [20.0, 52.00015],
+        ],
+      },
       heightAboveGroundM: 8.5,
     }
 
@@ -31,13 +34,39 @@ describe('generateObstacleMesh', () => {
     const obstacle: ObstacleStateEntry = {
       id: 'invalid-obstacle',
       kind: 'custom',
-      polygon: [
-        [20.0, 52.0],
-        [20.0001, 52.0001],
-      ],
+      shape: {
+        type: 'polygon-prism',
+        polygon: [
+          [20.0, 52.0],
+          [20.0001, 52.0001],
+        ],
+      },
       heightAboveGroundM: 5,
     }
 
     expect(generateObstacleMesh(obstacle)).toBeNull()
+  })
+
+  it('supports cylindrical visual mesh for tree obstacles', () => {
+    const obstacle: ObstacleStateEntry = {
+      id: 'tree-1',
+      kind: 'tree',
+      shape: {
+        type: 'tree',
+        center: [20.000015, 52.000015],
+        crownRadiusM: 2,
+        trunkRadiusM: 0.4,
+      },
+      heightAboveGroundM: 6,
+    }
+
+    const mesh = generateObstacleMesh(obstacle)
+    expect(mesh).not.toBeNull()
+    if (!mesh) {
+      return
+    }
+
+    expect(mesh.vertices.length).toBeGreaterThan(8)
+    expect(mesh.vertices.every((vertex) => vertex.z === 6)).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 import type { Dispatch } from 'react'
 import type { ObstacleKind, VertexHeightConstraint } from '../../types/geometry'
+import { obstacleShapeVertexCount } from '../../geometry/obstacles/obstacleModels'
 import { getActiveFootprint } from './projectState.selectors'
 import type { Action, ImportedFootprintEntry, ProjectState } from './projectState.types'
 
@@ -143,7 +144,7 @@ export function createProjectCommands(
     },
     moveObstacleVertex: (obstacleId: string, vertexIndex: number, point: [number, number]) => {
       const obstacle = getState().obstacles[obstacleId]
-      if (!obstacle || vertexIndex < 0 || vertexIndex >= obstacle.polygon.length) {
+      if (!obstacle || vertexIndex < 0 || vertexIndex >= obstacleShapeVertexCount(obstacle.shape)) {
         return false
       }
       dispatch({ type: 'MOVE_OBSTACLE_VERTEX', payload: { obstacleId, vertexIndex, point } })

@@ -26,6 +26,9 @@ export function SunCastCanvas({ model }: SunCastCanvasProps) {
         orbitEnabled={model.orbitEnabled}
         onToggleOrbit={model.onToggleOrbit}
         sunProjectionResult={model.sunProjectionResult}
+        shadingEnabled={model.shadingEnabled}
+        shadingHeatmapFeatures={model.shadingHeatmapFeatures}
+        shadingComputeState={model.shadingComputeState}
         roofMeshes={model.roofMeshes}
         obstacleMeshes={model.obstacleMeshes}
         vertexConstraints={model.vertexConstraints}

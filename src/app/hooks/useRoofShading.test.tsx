@@ -122,11 +122,12 @@ function makeArgs(overrides: Partial<UseRoofShadingArgs> = {}): UseRoofShadingAr
       {
         id: 'obs-1',
         kind: 'tree',
-        polygon: [
-          [9.8, 10.2],
-          [9.9, 10.2],
-          [9.9, 10.3],
-        ],
+        shape: {
+          type: 'tree',
+          center: [9.85, 10.25],
+          crownRadiusM: 1.6,
+          trunkRadiusM: 0.35,
+        },
         heightAboveGroundM: 8,
       },
     ],

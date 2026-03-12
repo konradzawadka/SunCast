@@ -41,6 +41,8 @@ describe('computeRoofShadeGrid', () => {
       obstacles: [
         {
           id: 'ob-1',
+          kind: 'building',
+          shape: 'prism',
           polygon: [
             metersToLonLat(alongX - perpX, alongY - perpY),
             metersToLonLat(alongX + perpX, alongY + perpY),

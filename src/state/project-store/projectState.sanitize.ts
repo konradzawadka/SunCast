@@ -1,9 +1,11 @@
 import type {
   FootprintPolygon,
+  LngLat,
   ObstacleStateEntry,
   ProjectSunProjectionSettings,
   ShadingSettings,
 } from '../../types/geometry'
+import { createObstacleShapeForKind } from '../../geometry/obstacles/obstacleModels'
 import { sanitizeVertexHeights } from './projectState.constraints'
 import type { FootprintStateEntry, ProjectState } from './projectState.types'
 
@@ -15,6 +17,19 @@ function sanitizePitchAdjustmentPercent(value: number): number {
     return 0
   }
   return Math.min(MAX_PITCH_ADJUSTMENT_PERCENT, Math.max(MIN_PITCH_ADJUSTMENT_PERCENT, value))
+}
+
+function sanitizePolygon(vertices: unknown): LngLat[] {
+  if (!Array.isArray(vertices)) {
+    return []
+  }
+  return vertices.filter(
+    (vertex): vertex is [number, number] =>
+      Array.isArray(vertex) &&
+      vertex.length === 2 &&
+      Number.isFinite(vertex[0]) &&
+      Number.isFinite(vertex[1]),
+  )
 }
 
 export function sanitizeLoadedState(
@@ -48,7 +63,7 @@ export function sanitizeLoadedState(
 
   const ids = Object.keys(sanitized)
   for (const [obstacleId, obstacle] of Object.entries(state.obstacles ?? {})) {
-    if (!obstacle || !Array.isArray(obstacle.polygon) || obstacle.polygon.length < 3) {
+    if (!obstacle) {
       continue
     }
 
@@ -58,21 +73,87 @@ export function sanitizeLoadedState(
       ? Math.max(0, obstacle.heightAboveGroundM)
       : 0
 
-    const polygon = obstacle.polygon.filter(
-      (vertex): vertex is [number, number] =>
-        Array.isArray(vertex) &&
-        vertex.length === 2 &&
-        Number.isFinite(vertex[0]) &&
-        Number.isFinite(vertex[1]),
-    )
-    if (polygon.length < 3) {
+    const legacyPolygon = sanitizePolygon((obstacle as { polygon?: unknown }).polygon)
+    const shapeRaw = (obstacle as { shape?: unknown }).shape
+    const shape =
+      kind === 'building' || kind === 'custom'
+        ? (() => {
+            if (
+              typeof shapeRaw === 'object' &&
+              shapeRaw !== null &&
+              (shapeRaw as { type?: unknown }).type === 'polygon-prism' &&
+              sanitizePolygon((shapeRaw as { polygon?: unknown }).polygon).length >= 3
+            ) {
+              return {
+                type: 'polygon-prism' as const,
+                polygon: sanitizePolygon((shapeRaw as { polygon?: unknown }).polygon),
+              }
+            }
+            if (legacyPolygon.length >= 3) {
+              return createObstacleShapeForKind(kind, legacyPolygon)
+            }
+            return null
+          })()
+        : (() => {
+            if (
+              typeof shapeRaw === 'object' &&
+              shapeRaw !== null &&
+              (shapeRaw as { type?: unknown }).type === 'cylinder'
+            ) {
+              const center = (shapeRaw as { center?: unknown }).center
+              const radiusM = Number((shapeRaw as { radiusM?: unknown }).radiusM)
+              if (
+                Array.isArray(center) &&
+                center.length === 2 &&
+                Number.isFinite(center[0]) &&
+                Number.isFinite(center[1]) &&
+                Number.isFinite(radiusM)
+              ) {
+                return {
+                  type: 'cylinder' as const,
+                  center: [center[0], center[1]] as LngLat,
+                  radiusM: Math.max(0.2, radiusM),
+                }
+              }
+            }
+            if (
+              typeof shapeRaw === 'object' &&
+              shapeRaw !== null &&
+              (shapeRaw as { type?: unknown }).type === 'tree'
+            ) {
+              const center = (shapeRaw as { center?: unknown }).center
+              const crownRadiusM = Number((shapeRaw as { crownRadiusM?: unknown }).crownRadiusM)
+              const trunkRadiusM = Number((shapeRaw as { trunkRadiusM?: unknown }).trunkRadiusM)
+              if (
+                Array.isArray(center) &&
+                center.length === 2 &&
+                Number.isFinite(center[0]) &&
+                Number.isFinite(center[1]) &&
+                Number.isFinite(crownRadiusM) &&
+                Number.isFinite(trunkRadiusM)
+              ) {
+                return {
+                  type: 'tree' as const,
+                  center: [center[0], center[1]] as LngLat,
+                  crownRadiusM: Math.max(0.2, crownRadiusM),
+                  trunkRadiusM: Math.max(0.2, trunkRadiusM),
+                }
+              }
+            }
+            if (legacyPolygon.length >= 3) {
+              return createObstacleShapeForKind(kind, legacyPolygon)
+            }
+            return null
+          })()
+
+    if (!shape) {
       continue
     }
 
     sanitizedObstacles[id] = {
       id,
       kind,
-      polygon,
+      shape,
       heightAboveGroundM,
       label: typeof obstacle.label === 'string' ? obstacle.label : undefined,
     }

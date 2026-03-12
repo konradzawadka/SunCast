@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { RoofMeshData } from '../../types/geometry'
-import { buildRoofWorldGeometry } from './roofWorldGeometry'
+import { buildWorldMeshGeometry } from './meshWorldGeometry'
 
-describe('buildRoofWorldGeometry', () => {
+describe('buildWorldMeshGeometry', () => {
   it('builds one stem per vertex with positive dz for positive heights', () => {
     const mesh: RoofMeshData = {
       vertices: [
@@ -14,7 +14,7 @@ describe('buildRoofWorldGeometry', () => {
       triangleIndices: [0, 1, 2, 0, 2, 3],
     }
 
-    const world = buildRoofWorldGeometry(mesh)
+    const world = buildWorldMeshGeometry(mesh)
     expect(world).not.toBeNull()
     if (!world) {
       return

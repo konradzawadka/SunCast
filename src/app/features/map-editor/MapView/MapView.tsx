@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FootprintPolygon, ObstacleStateEntry, RoofMeshData, VertexHeightConstraint } from '../../../../types/geometry'
 import type { SunProjectionResult } from '../../../../geometry/sun/sunProjection'
+import type { RoofShadingComputeState, ShadeHeatmapFeature } from '../../../hooks/useRoofShading'
 import { MapOverlayControls } from './MapOverlayControls'
 import { buildHashWithMapCenter } from './mapCenterFromHash'
 import { useLatest } from './useLatest'
@@ -10,6 +11,7 @@ import { useMapSources } from './useMapSources'
 import { useOrbitCamera } from './useOrbitCamera'
 import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 import { pointAtDistanceMeters } from './drawingAssist'
+import { buildObstacleLayerGeometry, buildRoofLayerGeometry } from '../../../../rendering/roof-layer/layerGeometryAdapters'
 
 interface MapViewProps {
   editMode: 'roof' | 'obstacle'
@@ -26,6 +28,9 @@ interface MapViewProps {
   orbitEnabled: boolean
   onToggleOrbit: () => void
   sunProjectionResult: SunProjectionResult | null
+  shadingEnabled: boolean
+  shadingHeatmapFeatures: ShadeHeatmapFeature[]
+  shadingComputeState: RoofShadingComputeState
   roofMeshes: RoofMeshData[]
   obstacleMeshes: RoofMeshData[]
   vertexConstraints: VertexHeightConstraint[]
@@ -73,6 +78,9 @@ export function MapView({
   orbitEnabled,
   onToggleOrbit,
   sunProjectionResult,
+  shadingEnabled,
+  shadingHeatmapFeatures,
+  shadingComputeState,
   roofMeshes,
   obstacleMeshes,
   vertexConstraints,
@@ -211,7 +219,9 @@ export function MapView({
     ],
   )
 
-  const { containerRef, mapRef, roofLayerRef, obstacleLayerRef, mapLoaded, mapError } = useMapInstance({ onInitialized })
+  const { containerRef, mapRef, roofLayerRef, obstacleLayerRef, heatmapLayerRef, mapLoaded, mapError } = useMapInstance({
+    onInitialized,
+  })
 
   const { hoveredEdgeLength, drawingAngleHint, draftPreviewPoint } = useMapInteractions({
     mapRef,
@@ -289,15 +299,29 @@ export function MapView({
     if (!mapLoaded) {
       return
     }
-    roofLayerRef.current?.setMeshes(roofMeshes)
+    roofLayerRef.current?.setGeometry(buildRoofLayerGeometry(roofMeshes, 1))
   }, [mapLoaded, roofLayerRef, roofMeshes])
 
   useEffect(() => {
     if (!mapLoaded) {
       return
     }
-    obstacleLayerRef.current?.setMeshes(obstacleMeshes)
+    obstacleLayerRef.current?.setGeometry(buildObstacleLayerGeometry(obstacleMeshes, 1))
   }, [mapLoaded, obstacleLayerRef, obstacleMeshes])
+
+  useEffect(() => {
+    if (!mapLoaded) {
+      return
+    }
+    heatmapLayerRef.current?.setRoofMeshes(roofMeshes)
+  }, [heatmapLayerRef, mapLoaded, roofMeshes])
+
+  useEffect(() => {
+    if (!mapLoaded) {
+      return
+    }
+    heatmapLayerRef.current?.setHeatmapFeatures(shadingHeatmapFeatures)
+  }, [heatmapLayerRef, mapLoaded, shadingHeatmapFeatures])
 
   useEffect(() => {
     if (!mapLoaded) {
@@ -305,7 +329,17 @@ export function MapView({
     }
     roofLayerRef.current?.setVisible(orbitEnabled && meshesVisible)
     obstacleLayerRef.current?.setVisible(orbitEnabled && meshesVisible)
-  }, [mapLoaded, meshesVisible, orbitEnabled, roofLayerRef, obstacleLayerRef])
+    heatmapLayerRef.current?.setVisible(orbitEnabled && shadingEnabled && shadingComputeState === 'READY')
+  }, [
+    heatmapLayerRef,
+    mapLoaded,
+    meshesVisible,
+    orbitEnabled,
+    roofLayerRef,
+    obstacleLayerRef,
+    shadingComputeState,
+    shadingEnabled,
+  ])
 
   useEffect(() => {
     if (!effectiveSunPerspectiveEnabled || !sunProjectionResult) {

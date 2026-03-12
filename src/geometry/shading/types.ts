@@ -1,4 +1,5 @@
 import type { LngLat, ObstacleKind, RoofPlane } from '../../types/geometry'
+import type { ShadingObstacleVolume } from '../obstacles/obstacleModels'
 import type { LocalOrigin, Point2 } from '../projection/localMeters'
 
 export interface Point3 {
@@ -26,12 +27,7 @@ export interface ShadingRoofInput {
   vertexHeightsM: number[]
 }
 
-export interface ShadingObstacleInput {
-  id: string
-  kind?: ObstacleKind
-  polygon: LngLat[]
-  heightAboveGroundM: number
-}
+export type ShadingObstacleInput = ShadingObstacleVolume
 
 export interface LocalRoofSurface {
   roofId: string
