@@ -59,6 +59,17 @@ vi.mock('../features/sun-tools/useSunProjectionPanel', () => ({
 
 vi.mock('./useKeyboardShortcuts', () => ({ useKeyboardShortcuts: vi.fn() }))
 vi.mock('../features/debug/useRoofDebugSimulation', () => ({ useRoofDebugSimulation: vi.fn() }))
+vi.mock('./useRoofShading', () => ({
+  useRoofShading: () => ({
+    heatmapFeatures: [],
+    computeState: 'IDLE',
+    computeMode: 'final',
+    resultStatus: null,
+    statusMessage: null,
+    diagnostics: null,
+    usedGridResolutionM: null,
+  }),
+}))
 
 import { useSunCastController } from './useSunCastController'
 
@@ -133,10 +144,19 @@ function makeState(): ProjectState {
     selectedFootprintIds: ['a', 'b'],
     drawDraft: [],
     isDrawing: false,
+    obstacles: {},
+    activeObstacleId: null,
+    selectedObstacleIds: [],
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: {
       enabled: true,
       datetimeIso: '2026-03-07T10:00',
       dailyDateIso: '2026-03-07',
+    },
+    shadingSettings: {
+      enabled: true,
+      gridResolutionM: 0.5,
     },
   }
 }
@@ -150,18 +170,30 @@ describe('useSunCastController', () => {
       activeFootprint: state.footprints.a.footprint,
       activeConstraints: { vertexHeights: [] } satisfies FaceConstraints,
       selectedFootprintIds: state.selectedFootprintIds,
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacles: [],
       sunProjection: state.sunProjection,
       startDrawing: vi.fn(),
       cancelDrawing: vi.fn(),
       addDraftPoint: vi.fn(),
       undoDraftPoint: vi.fn(),
       commitFootprint: vi.fn(),
+      startObstacleDrawing: vi.fn(),
+      cancelObstacleDrawing: vi.fn(),
+      addObstacleDraftPoint: vi.fn(),
+      undoObstacleDraftPoint: vi.fn(),
+      commitObstacle: vi.fn(),
       deleteFootprint: vi.fn(),
+      deleteObstacle: vi.fn(),
       moveVertex: vi.fn(),
       moveEdge: vi.fn(),
+      moveObstacleVertex: vi.fn(() => true),
       setVertexHeight: vi.fn(),
       setVertexHeights: vi.fn(),
       setEdgeHeight: vi.fn(),
+      setObstacleHeight: vi.fn(() => true),
+      setObstacleKind: vi.fn(() => true),
       clearVertexHeight: vi.fn(),
       clearEdgeHeight: vi.fn(),
       setSunProjectionEnabled: vi.fn(),
@@ -173,7 +205,11 @@ describe('useSunCastController', () => {
       toggleFootprintSelection: vi.fn(),
       selectAllFootprints: vi.fn(),
       clearFootprintSelection: vi.fn(),
+      selectOnlyObstacle: vi.fn(),
+      toggleObstacleSelection: vi.fn(),
+      clearObstacleSelection: vi.fn(),
       upsertImportedFootprints: vi.fn(),
+      startupHydrationError: null,
     })
 
     mockUseSolvedRoofEntries.mockReturnValue({
@@ -210,18 +246,30 @@ describe('useSunCastController', () => {
       activeFootprint: state.footprints.a.footprint,
       activeConstraints: { vertexHeights: [] } satisfies FaceConstraints,
       selectedFootprintIds: state.selectedFootprintIds,
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacles: [],
       sunProjection: state.sunProjection,
       startDrawing: vi.fn(),
       cancelDrawing: vi.fn(),
       addDraftPoint: vi.fn(),
       undoDraftPoint: vi.fn(),
       commitFootprint: vi.fn(),
+      startObstacleDrawing: vi.fn(),
+      cancelObstacleDrawing: vi.fn(),
+      addObstacleDraftPoint: vi.fn(),
+      undoObstacleDraftPoint: vi.fn(),
+      commitObstacle: vi.fn(),
       deleteFootprint: vi.fn(),
+      deleteObstacle: vi.fn(),
       moveVertex: vi.fn(),
       moveEdge: vi.fn(),
+      moveObstacleVertex: vi.fn(() => true),
       setVertexHeight: vi.fn(),
       setVertexHeights: vi.fn(),
       setEdgeHeight: vi.fn(),
+      setObstacleHeight: vi.fn(() => true),
+      setObstacleKind: vi.fn(() => true),
       clearVertexHeight: vi.fn(),
       clearEdgeHeight: vi.fn(),
       setSunProjectionEnabled: vi.fn(),
@@ -233,7 +281,11 @@ describe('useSunCastController', () => {
       toggleFootprintSelection: vi.fn(),
       selectAllFootprints: vi.fn(),
       clearFootprintSelection: vi.fn(),
+      selectOnlyObstacle: vi.fn(),
+      toggleObstacleSelection: vi.fn(),
+      clearObstacleSelection: vi.fn(),
       upsertImportedFootprints: vi.fn(),
+      startupHydrationError: null,
     })
 
     mockUseSolvedRoofEntries.mockReturnValue({ entries: [], activeSolved: null, activeError: null })

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DrawTools } from '../features/map-editor/DrawTools/DrawTools'
 import { FootprintPanel } from '../components/FootprintPanel'
+import { ObstaclePanel } from '../components/ObstaclePanel'
 import { RoofEditor } from '../components/RoofEditor/RoofEditor'
 import { StatusPanel } from '../components/StatusPanel'
 import type { SunCastSidebarModel } from '../hooks/useSunCastController'
@@ -66,12 +67,20 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
       )}
 
       <DrawTools
-        isDrawing={model.isDrawing}
-        pointCount={model.drawDraftCount}
-        onStart={model.onStartDrawing}
-        onUndo={model.onUndoDrawing}
-        onCancel={model.onCancelDrawing}
-        onCommit={model.onCommitDrawing}
+        editMode={model.editMode}
+        isDrawingRoof={model.isDrawingRoof}
+        isDrawingObstacle={model.isDrawingObstacle}
+        roofPointCount={model.drawDraftCountRoof}
+        obstaclePointCount={model.drawDraftCountObstacle}
+        onSetEditMode={model.onSetEditMode}
+        onStartRoofDrawing={model.onStartDrawing}
+        onUndoRoofDrawing={model.onUndoDrawing}
+        onCancelRoofDrawing={model.onCancelDrawing}
+        onCommitRoofDrawing={model.onCommitDrawing}
+        onStartObstacleDrawing={model.onStartObstacleDrawing}
+        onUndoObstacleDrawing={model.onUndoObstacleDrawing}
+        onCancelObstacleDrawing={model.onCancelObstacleDrawing}
+        onCommitObstacleDrawing={model.onCommitObstacleDrawing}
       />
 
       <FootprintPanel
@@ -95,6 +104,16 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
         onClearVertex={model.onClearVertex}
         onClearEdge={model.onClearEdge}
         onConstraintLimitExceeded={model.onConstraintLimitExceeded}
+      />
+
+      <ObstaclePanel
+        obstacles={model.obstacles}
+        activeObstacle={model.activeObstacle}
+        selectedObstacleIds={model.selectedObstacleIds}
+        onSelectObstacle={model.onSelectObstacle}
+        onSetActiveObstacleKind={model.onSetActiveObstacleKind}
+        onSetActiveObstacleHeight={model.onSetActiveObstacleHeight}
+        onDeleteActiveObstacle={model.onDeleteActiveObstacle}
       />
 
       <StatusPanel

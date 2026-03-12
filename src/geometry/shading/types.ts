@@ -1,0 +1,118 @@
+import type { LngLat, ObstacleKind, RoofPlane } from '../../types/geometry'
+import type { LocalOrigin, Point2 } from '../projection/localMeters'
+
+export interface Point3 {
+  x: number
+  y: number
+  z: number
+}
+
+export interface Triangle3 {
+  a: Point3
+  b: Point3
+  c: Point3
+}
+
+export interface BBox2 {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+}
+
+export interface ShadingRoofInput {
+  roofId: string
+  polygon: LngLat[]
+  vertexHeightsM: number[]
+}
+
+export interface ShadingObstacleInput {
+  id: string
+  kind?: ObstacleKind
+  polygon: LngLat[]
+  heightAboveGroundM: number
+}
+
+export interface LocalRoofSurface {
+  roofId: string
+  polygonLocal: Point2[]
+  plane: RoofPlane
+  bbox: BBox2
+}
+
+export interface RoofSamplePoint {
+  roofId: string
+  x: number
+  y: number
+  z: number
+  cellPolygonLocal: Point2[]
+}
+
+export interface ObstaclePrism {
+  id: string
+  kind?: ObstacleKind
+  heightAboveGroundM: number
+  polygonLocal: Point2[]
+  bbox: BBox2
+  triangles: Triangle3[]
+}
+
+export interface SunDirection {
+  x: number
+  y: number
+  z: number
+}
+
+export interface RoofShadeCell {
+  roofId: string
+  sample: {
+    x: number
+    y: number
+    z: number
+  }
+  shadeFactor: 0 | 1
+  cellPolygonLocal: Point2[]
+  cellPolygon: LngLat[]
+}
+
+export interface RoofShadeResult {
+  roofId: string
+  shadedCellCount: number
+  litCellCount: number
+  cells: RoofShadeCell[]
+}
+
+export interface RoofShadeDiagnostics {
+  roofsProcessed: number
+  roofsSkipped: number
+  obstaclesProcessed: number
+  sampleCount: number
+  obstacleCandidatesChecked: number
+}
+
+export interface ComputeRoofShadeGridInput {
+  datetimeIso: string
+  roofs: ShadingRoofInput[]
+  obstacles: ShadingObstacleInput[]
+  gridResolutionM: number
+  lowSunElevationThresholdDeg?: number
+  maxShadowDistanceClampM?: number
+}
+
+export type ShadeComputationStatus =
+  | 'OK'
+  | 'NO_ROOFS'
+  | 'SUN_BELOW_HORIZON'
+  | 'SUN_TOO_LOW'
+  | 'INVALID_GRID_RESOLUTION'
+
+export interface ComputeRoofShadeGridResult {
+  status: ShadeComputationStatus
+  statusMessage: string
+  origin: LocalOrigin | null
+  sunAzimuthDeg: number | null
+  sunElevationDeg: number | null
+  sunDirection: SunDirection | null
+  roofs: RoofShadeResult[]
+  diagnostics: RoofShadeDiagnostics
+}

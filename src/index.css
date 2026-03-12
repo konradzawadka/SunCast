@@ -198,12 +198,29 @@ body {
 }
 
 input,
+select,
 button {
   border: 1px solid #41565f;
   background: #111819;
   color: #ecf1f4;
   padding: 7px 10px;
   border-radius: 6px;
+}
+
+.draw-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.draw-mode-button {
+  border-color: #3f525a;
+}
+
+.draw-mode-button-active {
+  border-color: #79d27a;
+  background: rgba(121, 210, 122, 0.16);
 }
 
 .ui-input {

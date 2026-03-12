@@ -1,5 +1,6 @@
 import type maplibregl from 'maplibre-gl'
 import {
+  ACTIVE_OBSTACLE_VERTICES_SOURCE_ID,
   ACTIVE_EDGE_LABELS_SOURCE_ID,
   ACTIVE_EDGES_SOURCE_ID,
   ACTIVE_VERTICES_SOURCE_ID,
@@ -7,6 +8,9 @@ import {
   EDGE_HIT_LAYER_ID,
   FOOTPRINT_HIT_LAYER_ID,
   FOOTPRINTS_SOURCE_ID,
+  OBSTACLES_SOURCE_ID,
+  OBSTACLE_HIT_LAYER_ID,
+  OBSTACLE_VERTEX_HIT_LAYER_ID,
   SATELLITE_TILES,
   VERTEX_HIT_LAYER_ID,
 } from './mapViewConstants'
@@ -25,6 +29,10 @@ export function createMapStyle(): maplibregl.StyleSpecification {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       },
+      [OBSTACLES_SOURCE_ID]: {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      },
       [ACTIVE_EDGES_SOURCE_ID]: {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -34,6 +42,10 @@ export function createMapStyle(): maplibregl.StyleSpecification {
         data: { type: 'FeatureCollection', features: [] },
       },
       [ACTIVE_EDGE_LABELS_SOURCE_ID]: {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      },
+      [ACTIVE_OBSTACLE_VERTICES_SOURCE_ID]: {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       },
@@ -66,6 +78,33 @@ export function createMapStyle(): maplibregl.StyleSpecification {
         id: FOOTPRINT_HIT_LAYER_ID,
         type: 'fill',
         source: FOOTPRINTS_SOURCE_ID,
+        paint: {
+          'fill-color': '#000000',
+          'fill-opacity': 0,
+        },
+      },
+      {
+        id: 'obstacles-fill',
+        type: 'fill',
+        source: OBSTACLES_SOURCE_ID,
+        paint: {
+          'fill-color': ['case', ['==', ['get', 'active'], 1], '#9ca3af', '#6b7280'],
+          'fill-opacity': ['case', ['==', ['get', 'selected'], 1], 0.32, 0.2],
+        },
+      },
+      {
+        id: 'obstacles-line',
+        type: 'line',
+        source: OBSTACLES_SOURCE_ID,
+        paint: {
+          'line-color': ['case', ['==', ['get', 'active'], 1], '#d1d5db', '#9ca3af'],
+          'line-width': ['case', ['==', ['get', 'selected'], 1], 2.6, 1.6],
+        },
+      },
+      {
+        id: OBSTACLE_HIT_LAYER_ID,
+        type: 'fill',
+        source: OBSTACLES_SOURCE_ID,
         paint: {
           'fill-color': '#000000',
           'fill-opacity': 0,
@@ -122,6 +161,17 @@ export function createMapStyle(): maplibregl.StyleSpecification {
           'text-color': '#ffe59a',
           'text-halo-color': '#0f171b',
           'text-halo-width': 1,
+        },
+      },
+      {
+        id: OBSTACLE_VERTEX_HIT_LAYER_ID,
+        type: 'circle',
+        source: ACTIVE_OBSTACLE_VERTICES_SOURCE_ID,
+        paint: {
+          'circle-color': '#ffdea8',
+          'circle-radius': 5,
+          'circle-stroke-color': '#291d0f',
+          'circle-stroke-width': 1.2,
         },
       },
       {

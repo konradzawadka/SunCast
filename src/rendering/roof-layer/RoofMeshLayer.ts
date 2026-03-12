@@ -5,9 +5,21 @@ import { buildRoofWorldGeometry, type RoofWorldMeshGeometry } from './roofWorldG
 import { acquireSharedThreeRenderer, releaseSharedThreeRenderer } from './sharedThreeRenderer'
 
 const RENDER_EPSILON_M = 0.05
-const TOP_COLOR_HEX = 0xff6155
-const WALL_COLOR_HEX = 0xe63a33
-const BASE_COLOR_HEX = 0xbf3a35
+const DEFAULT_TOP_COLOR_HEX = 0xff6155
+const DEFAULT_WALL_COLOR_HEX = 0xe63a33
+const DEFAULT_BASE_COLOR_HEX = 0xbf3a35
+
+export interface RoofMeshLayerStyle {
+  topColorHex: number
+  wallColorHex: number
+  baseColorHex: number
+}
+
+export interface RoofMeshLayerParts {
+  top: boolean
+  walls: boolean
+  base: boolean
+}
 
 function createTopGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry | null {
   if (world.topVertices.length < 3 || world.triangleIndices.length < 3) {
@@ -127,9 +139,25 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
   private wallMaterial: THREE.MeshBasicMaterial | null = null
   private baseMaterial: THREE.MeshBasicMaterial | null = null
   private visible = true
+  private style: RoofMeshLayerStyle
+  private parts: RoofMeshLayerParts
 
-  constructor(id = 'roof-mesh-layer') {
+  constructor(
+    id = 'roof-mesh-layer',
+    style: Partial<RoofMeshLayerStyle> = {},
+    parts: Partial<RoofMeshLayerParts> = {},
+  ) {
     this.id = id
+    this.style = {
+      topColorHex: style.topColorHex ?? DEFAULT_TOP_COLOR_HEX,
+      wallColorHex: style.wallColorHex ?? DEFAULT_WALL_COLOR_HEX,
+      baseColorHex: style.baseColorHex ?? DEFAULT_BASE_COLOR_HEX,
+    }
+    this.parts = {
+      top: parts.top ?? true,
+      walls: parts.walls ?? true,
+      base: parts.base ?? true,
+    }
   }
 
   onAdd(map: maplibregl.Map, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -142,7 +170,7 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
     this.scene.add(this.roofGroup)
 
     this.topMaterial = new THREE.MeshBasicMaterial({
-      color: TOP_COLOR_HEX,
+      color: this.style.topColorHex,
       transparent: true,
       opacity: 0.8,
       side: THREE.DoubleSide,
@@ -150,7 +178,7 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
       depthWrite: false,
     })
     this.wallMaterial = new THREE.MeshBasicMaterial({
-      color: WALL_COLOR_HEX,
+      color: this.style.wallColorHex,
       transparent: true,
       opacity: 0.92,
       side: THREE.DoubleSide,
@@ -158,7 +186,7 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
       depthWrite: false,
     })
     this.baseMaterial = new THREE.MeshBasicMaterial({
-      color: BASE_COLOR_HEX,
+      color: this.style.baseColorHex,
       transparent: true,
       opacity: 0.45,
       side: THREE.DoubleSide,
@@ -240,22 +268,22 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
         continue
       }
 
-      const topGeometry = createTopGeometry(worldGeometry)
-      if (topGeometry) {
+      const topGeometry = this.parts.top ? createTopGeometry(worldGeometry) : null
+      if (topGeometry && this.topMaterial) {
         const topMesh = new THREE.Mesh(topGeometry, this.topMaterial)
         topMesh.frustumCulled = false
         this.roofGroup.add(topMesh)
       }
 
-      const wallGeometry = createWallGeometry(worldGeometry)
-      if (wallGeometry) {
+      const wallGeometry = this.parts.walls ? createWallGeometry(worldGeometry) : null
+      if (wallGeometry && this.wallMaterial) {
         const wallMesh = new THREE.Mesh(wallGeometry, this.wallMaterial)
         wallMesh.frustumCulled = false
         this.roofGroup.add(wallMesh)
       }
 
-      const baseGeometry = createBaseGeometry(worldGeometry)
-      if (baseGeometry) {
+      const baseGeometry = this.parts.base ? createBaseGeometry(worldGeometry) : null
+      if (baseGeometry && this.baseMaterial) {
         const baseMesh = new THREE.Mesh(baseGeometry, this.baseMaterial)
         baseMesh.frustumCulled = false
         this.roofGroup.add(baseMesh)

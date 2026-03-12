@@ -1,7 +1,10 @@
 import type {
   FaceConstraints,
   FootprintPolygon,
+  ObstacleKind,
+  ObstacleStateEntry,
   ProjectSunProjectionSettings,
+  ShadingSettings,
   VertexHeightConstraint,
 } from '../../types/geometry'
 
@@ -23,7 +26,13 @@ export interface ProjectState {
   selectedFootprintIds: string[]
   drawDraft: Array<[number, number]>
   isDrawing: boolean
+  obstacles: Record<string, ObstacleStateEntry>
+  activeObstacleId: string | null
+  selectedObstacleIds: string[]
+  obstacleDrawDraft: Array<[number, number]>
+  isDrawingObstacle: boolean
   sunProjection: ProjectSunProjectionSettings
+  shadingSettings: ShadingSettings
 }
 
 export type Action =
@@ -50,5 +59,24 @@ export type Action =
   | { type: 'SET_SUN_PROJECTION_ENABLED'; enabled: boolean }
   | { type: 'SET_SUN_PROJECTION_DATETIME'; datetimeIso: string | null }
   | { type: 'SET_SUN_PROJECTION_DAILY_DATE'; dailyDateIso: string | null }
+  | { type: 'START_OBSTACLE_DRAW' }
+  | { type: 'CANCEL_OBSTACLE_DRAW' }
+  | { type: 'ADD_OBSTACLE_DRAFT_POINT'; point: [number, number] }
+  | { type: 'UNDO_OBSTACLE_DRAFT_POINT' }
+  | { type: 'COMMIT_OBSTACLE' }
+  | { type: 'SET_ACTIVE_OBSTACLE'; obstacleId: string }
+  | { type: 'SELECT_ONLY_OBSTACLE'; obstacleId: string }
+  | { type: 'TOGGLE_OBSTACLE_SELECTION'; obstacleId: string }
+  | { type: 'SELECT_ALL_OBSTACLES' }
+  | { type: 'CLEAR_OBSTACLE_SELECTION' }
+  | { type: 'DELETE_OBSTACLE'; obstacleId: string }
+  | { type: 'SET_OBSTACLE_HEIGHT'; payload: { obstacleId: string; heightAboveGroundM: number } }
+  | { type: 'SET_OBSTACLE_KIND'; payload: { obstacleId: string; kind: ObstacleKind } }
+  | {
+      type: 'MOVE_OBSTACLE_VERTEX'
+      payload: { obstacleId: string; vertexIndex: number; point: [number, number] }
+    }
+  | { type: 'SET_SHADING_ENABLED'; enabled: boolean }
+  | { type: 'SET_SHADING_GRID_RESOLUTION'; gridResolutionM: number }
   | { type: 'UPSERT_IMPORTED_FOOTPRINTS'; entries: ImportedFootprintEntry[] }
   | { type: 'LOAD'; payload: ProjectState }

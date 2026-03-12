@@ -55,14 +55,37 @@ export interface SolvedRoofPlane {
 export interface ProjectData {
   footprints: Record<string, StoredFootprint>
   activeFootprintId: string | null
+  obstacles?: Record<string, ObstacleStateEntry>
+  activeObstacleId?: string | null
   solverConfigVersion?: string
   sunProjection?: ProjectSunProjectionSettings
+  shadingSettings?: ShadingSettings
 }
 
 export interface ProjectSunProjectionSettings {
   enabled: boolean
   datetimeIso: string | null
   dailyDateIso: string | null
+}
+
+export type ObstacleKind = 'building' | 'tree' | 'pole' | 'custom'
+
+export interface ObstaclePolygon {
+  id: string
+  vertices: LngLat[]
+}
+
+export interface ObstacleStateEntry {
+  id: string
+  kind: ObstacleKind
+  polygon: LngLat[]
+  heightAboveGroundM: number
+  label?: string
+}
+
+export interface ShadingSettings {
+  enabled: boolean
+  gridResolutionM: number
 }
 
 export interface StoredFootprint {

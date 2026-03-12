@@ -14,6 +14,7 @@ interface UseMapInstanceResult {
   containerRef: RefObject<HTMLDivElement | null>
   mapRef: RefObject<maplibregl.Map | null>
   roofLayerRef: RefObject<RoofMeshLayer | null>
+  obstacleLayerRef: RefObject<RoofMeshLayer | null>
   mapLoaded: boolean
   mapError: string | null
 }
@@ -22,6 +23,7 @@ export function useMapInstance({ onInitialized }: UseMapInstanceArgs): UseMapIns
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const roofLayerRef = useRef<RoofMeshLayer | null>(null)
+  const obstacleLayerRef = useRef<RoofMeshLayer | null>(null)
   const mapLoadedRef = useRef(false)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -53,9 +55,21 @@ export function useMapInstance({ onInitialized }: UseMapInstanceArgs): UseMapIns
       mapLoadedRef.current = true
       setMapError(null)
       setMapLoaded(true)
+      const obstacleLayer = new RoofMeshLayer('obstacle-mesh-layer', {
+        topColorHex: 0x9ca3af,
+        wallColorHex: 0x6b7280,
+        baseColorHex: 0x4b5563,
+      }, {
+        top: true,
+        walls: false,
+        base: false,
+      })
       const roofLayer = new RoofMeshLayer('roof-mesh-layer')
+      obstacleLayerRef.current = obstacleLayer
       roofLayerRef.current = roofLayer
+      map.addLayer(obstacleLayer)
       map.addLayer(roofLayer)
+      obstacleLayer.setZExaggeration(1)
       roofLayer.setZExaggeration(1)
       onInitializedRef.current?.()
     }
@@ -82,10 +96,11 @@ export function useMapInstance({ onInitialized }: UseMapInstanceArgs): UseMapIns
       map.remove()
       mapRef.current = null
       roofLayerRef.current = null
+      obstacleLayerRef.current = null
       mapLoadedRef.current = false
       setMapLoaded(false)
     }
   }, [onInitializedRef])
 
-  return { containerRef, mapRef, roofLayerRef, mapLoaded, mapError }
+  return { containerRef, mapRef, roofLayerRef, obstacleLayerRef, mapLoaded, mapError }
 }

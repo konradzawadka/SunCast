@@ -84,6 +84,7 @@ function createRefs(overrides: Partial<InteractionRefs> = {}): InteractionRefs {
   return {
     drawingRef: { current: false },
     drawDraftRef: { current: [] as Array<[number, number]> },
+    editModeRef: { current: 'roof' },
     orbitEnabledRef: { current: false },
     activeFootprintRef: {
       current: {
@@ -96,14 +97,17 @@ function createRefs(overrides: Partial<InteractionRefs> = {}): InteractionRefs {
         kwp: 4,
       },
     },
+    activeObstacleRef: { current: null },
     onMapClickRef: { current: vi.fn() },
     onCloseDrawingRef: { current: vi.fn() },
     onSelectVertexRef: { current: vi.fn() },
     onSelectEdgeRef: { current: vi.fn() },
     onSelectFootprintRef: { current: vi.fn() },
+    onSelectObstacleRef: { current: vi.fn() },
     onClearSelectionRef: { current: vi.fn() },
     onMoveVertexRef: { current: vi.fn(() => true) },
     onMoveEdgeRef: { current: vi.fn(() => true) },
+    onMoveObstacleVertexRef: { current: vi.fn(() => true) },
     onMoveRejectedRef: { current: vi.fn() },
     onBearingChangeRef: { current: vi.fn() },
     onPitchChangeRef: { current: vi.fn() },
@@ -325,6 +329,29 @@ describe('useMapInteractions', () => {
 
     expect(refs.onMoveRejectedRef.current).toHaveBeenCalled()
     expect(refs.onGeometryDragStateChangeRef.current).toHaveBeenLastCalledWith(false)
+    hook.unmount()
+  })
+
+  it('selects obstacle in obstacle edit mode', () => {
+    const hitFeatures = [{ layer: { id: 'obstacles-hit' }, properties: { obstacleId: 'ob-1' } }]
+    const { handlers, map } = createMapMock(hitFeatures)
+    const refs = createRefs({
+      editModeRef: { current: 'obstacle' },
+    })
+    const mapRef = createRef<unknown>()
+    mapRef.current = map
+
+    const hook = renderInteractions({ mapRef, mapLoaded: true, refs })
+
+    act(() => {
+      handlers.click({
+        point: { x: 40, y: 50 },
+        lngLat: { lng: 10, lat: 10 },
+        originalEvent: new MouseEvent('click'),
+      })
+    })
+
+    expect(refs.onSelectObstacleRef.current).toHaveBeenCalledWith('ob-1', false)
     hook.unmount()
   })
 })

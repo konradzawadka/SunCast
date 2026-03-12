@@ -1,4 +1,4 @@
-import type { ProjectSunProjectionSettings, StoredFootprint } from '../../types/geometry'
+import type { ProjectSunProjectionSettings, ShadingSettings, StoredFootprint } from '../../types/geometry'
 import { fromStoredFootprint } from './projectState.mappers'
 import { sanitizeLoadedState } from './projectState.sanitize'
 import type { ProjectState } from './projectState.types'
@@ -161,6 +161,7 @@ export function deserializeSharePayload(
   raw: string,
   defaultSunProjection: ProjectSunProjectionSettings,
   defaultFootprintKwp: number,
+  defaultShadingSettings: ShadingSettings,
 ): ProjectState {
   const parsed: unknown = JSON.parse(raw)
   const migrated = migrateSharePayload(parsed)
@@ -187,12 +188,18 @@ export function deserializeSharePayload(
     selectedFootprintIds: migrated.activeFootprintId ? [migrated.activeFootprintId] : [],
     drawDraft: [],
     isDrawing: false,
+    obstacles: {},
+    activeObstacleId: null,
+    selectedObstacleIds: [],
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: {
       enabled: migrated.sunProjection?.enabled ?? defaultSunProjection.enabled,
       datetimeIso: migrated.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
       dailyDateIso: migrated.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
     },
+    shadingSettings: defaultShadingSettings,
   }
 
-  return sanitizeLoadedState(loaded, defaultSunProjection, defaultFootprintKwp)
+  return sanitizeLoadedState(loaded, defaultSunProjection, defaultFootprintKwp, defaultShadingSettings)
 }

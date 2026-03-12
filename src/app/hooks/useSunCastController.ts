@@ -6,11 +6,13 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useRoofDebugSimulation } from '../features/debug/useRoofDebugSimulation'
 import { useSelectionState } from './useSelectionState'
 import { useSolvedRoofEntries } from './useSolvedRoofEntries'
+import { generateObstacleMesh } from '../../geometry/mesh/generateObstacleMesh'
 import { useSunProjectionPanel } from '../features/sun-tools/useSunProjectionPanel'
 import type { ImportedFootprintConfigEntry } from '../features/debug/DevTools'
 import { useShareProject } from './useShareProject'
 import { useMapNavigationTarget } from './useMapNavigationTarget'
 import { useSelectedRoofInputs } from './useSelectedRoofInputs'
+import { useRoofShading } from './useRoofShading'
 import {
   clampPitchAdjustmentPercent,
   computeFootprintCentroid,
@@ -27,6 +29,7 @@ export function useSunCastController(): {
   tutorialModel: SunCastTutorialModel
 } {
   const [orbitEnabled, setOrbitEnabled] = useState(false)
+  const [editMode, setEditMode] = useState<'roof' | 'obstacle'>('roof')
   const [mapInitialized, setMapInitialized] = useState(false)
   const [mapBearingDeg, setMapBearingDeg] = useState(0)
   const [mapPitchDeg, setMapPitchDeg] = useState(0)
@@ -63,6 +66,21 @@ export function useSunCastController(): {
     toggleFootprintSelection,
     selectAllFootprints,
     clearFootprintSelection,
+    obstacles,
+    activeObstacle,
+    selectedObstacles,
+    startObstacleDrawing,
+    cancelObstacleDrawing,
+    addObstacleDraftPoint,
+    undoObstacleDraftPoint,
+    commitObstacle,
+    deleteObstacle,
+    moveObstacleVertex,
+    setObstacleHeight,
+    setObstacleKind,
+    selectOnlyObstacle,
+    toggleObstacleSelection,
+    clearObstacleSelection,
     upsertImportedFootprints,
     startupHydrationError,
   } = useProjectStore()
@@ -85,6 +103,39 @@ export function useSunCastController(): {
     footprintEntries: state.footprints,
     solvedEntries: solved.entries,
   })
+
+  const obstacleMeshes = useMemo(() => {
+    return obstacles
+      .map((obstacle) => generateObstacleMesh(obstacle))
+      .filter((mesh): mesh is NonNullable<typeof mesh> => mesh !== null)
+  }, [obstacles])
+
+  const shadingRoofs = useMemo(() => {
+    const solvedByFootprintId = new Map(solved.entries.map((entry) => [entry.footprintId, entry]))
+    return selectedFootprintIds
+      .map((footprintId) => {
+        const footprintEntry = state.footprints[footprintId]
+        const solvedEntry = solvedByFootprintId.get(footprintId)
+        if (!footprintEntry || !solvedEntry) {
+          return null
+        }
+
+        const polygon = footprintEntry.footprint.vertices
+        const vertexHeightsM = solvedEntry.solution.vertexHeightsM
+        if (polygon.length < 3 || polygon.length !== vertexHeightsM.length) {
+          return null
+        }
+
+        return {
+          roofId: footprintId,
+          polygon,
+          vertexHeightsM,
+        }
+      })
+      .filter((entry): entry is { roofId: string; polygon: Array<[number, number]>; vertexHeightsM: number[] } =>
+        Boolean(entry),
+      )
+  }, [selectedFootprintIds, solved.entries, state.footprints])
 
   const {
     selectedVertexIndex,
@@ -109,7 +160,7 @@ export function useSunCastController(): {
   } = useConstraintEditor({
     activeFootprint,
     activeConstraints,
-    isDrawing: state.isDrawing,
+    isDrawing: state.isDrawing || state.isDrawingObstacle,
     selectedVertexIndex,
     selectedEdgeIndex,
     setVertexHeight,
@@ -159,6 +210,15 @@ export function useSunCastController(): {
     setSunProjectionDailyDateIso,
   })
 
+  const shadingResult = useRoofShading({
+    enabled: state.shadingSettings.enabled && sunProjection.enabled && hasValidSunDatetime,
+    roofs: shadingRoofs,
+    obstacles,
+    datetimeIso: state.sunProjection.datetimeIso,
+    gridResolutionM: state.shadingSettings.gridResolutionM,
+    interactionActive: isGeometryDragActive,
+  })
+
   useRoofDebugSimulation({
     activeFootprint,
     activeSolved: solved.activeSolved,
@@ -171,9 +231,13 @@ export function useSunCastController(): {
       selectAllFootprints()
       clearSelectionState()
     },
-    isDrawing: state.isDrawing,
+    isDrawing: state.isDrawing || state.isDrawingObstacle,
     onCancelDrawing: () => {
-      cancelDrawing()
+      if (state.isDrawingObstacle) {
+        cancelObstacleDrawing()
+      } else {
+        cancelDrawing()
+      }
       clearSelectionState()
     },
   })
@@ -192,12 +256,18 @@ export function useSunCastController(): {
   const { mapNavigationTarget, onPlaceSearchSelect } = useMapNavigationTarget()
 
   const sidebarModel: SunCastSidebarModel = {
-    isDrawing: state.isDrawing,
-    drawDraftCount: state.drawDraft.length,
+    editMode,
+    isDrawingRoof: state.isDrawing,
+    isDrawingObstacle: state.isDrawingObstacle,
+    drawDraftCountRoof: state.drawDraft.length,
+    drawDraftCountObstacle: state.obstacleDrawDraft.length,
     footprints,
     activeFootprintId: state.activeFootprintId,
     selectedFootprintIds,
     activeFootprint,
+    obstacles,
+    activeObstacle,
+    selectedObstacleIds: selectedObstacles.map((obstacle) => obstacle.id),
     activeConstraints,
     selectedVertexIndex: safeSelectedVertexIndex,
     selectedEdgeIndex: safeSelectedEdgeIndex,
@@ -218,7 +288,17 @@ export function useSunCastController(): {
     activeFootprintLonDeg: activeFootprintCentroid?.[0] ?? null,
     shareError: shareError ?? startupHydrationError,
     shareSuccess,
+    onSetEditMode: (mode) => {
+      setEditMode(mode)
+      if (mode === 'roof' && state.isDrawingObstacle) {
+        cancelObstacleDrawing()
+      }
+      if (mode === 'obstacle' && state.isDrawing) {
+        cancelDrawing()
+      }
+    },
     onStartDrawing: () => {
+      cancelObstacleDrawing()
       clearSelectionState()
       startDrawing()
     },
@@ -231,11 +311,33 @@ export function useSunCastController(): {
       commitFootprint()
       clearSelectionState()
     },
+    onStartObstacleDrawing: () => {
+      cancelDrawing()
+      clearSelectionState()
+      startObstacleDrawing()
+    },
+    onUndoObstacleDrawing: undoObstacleDraftPoint,
+    onCancelObstacleDrawing: () => {
+      cancelObstacleDrawing()
+      clearSelectionState()
+    },
+    onCommitObstacleDrawing: () => {
+      commitObstacle()
+      clearSelectionState()
+    },
     onSelectFootprint: (footprintId, multiSelect) => {
       if (multiSelect) {
         toggleFootprintSelection(footprintId)
       } else {
         selectOnlyFootprint(footprintId)
+      }
+      clearSelectionState()
+    },
+    onSelectObstacle: (obstacleId, multiSelect) => {
+      if (multiSelect) {
+        toggleObstacleSelection(obstacleId)
+      } else {
+        selectOnlyObstacle(obstacleId)
       }
       clearSelectionState()
     },
@@ -246,6 +348,18 @@ export function useSunCastController(): {
         setTutorialEditedKwpByFootprint((current) => ({ ...current, [footprintId]: true }))
       }
     },
+    onSetActiveObstacleHeight: (heightM) => {
+      if (!state.activeObstacleId) {
+        return
+      }
+      setObstacleHeight(state.activeObstacleId, heightM)
+    },
+    onSetActiveObstacleKind: (kind) => {
+      if (!state.activeObstacleId) {
+        return
+      }
+      setObstacleKind(state.activeObstacleId, kind)
+    },
     onSetPitchAdjustmentPercent: (pitchAdjustmentPercent) => {
       setActivePitchAdjustmentPercent(clampPitchAdjustmentPercent(pitchAdjustmentPercent))
     },
@@ -254,6 +368,13 @@ export function useSunCastController(): {
         return
       }
       deleteFootprint(state.activeFootprintId)
+      clearSelectionState()
+    },
+    onDeleteActiveObstacle: () => {
+      if (!state.activeObstacleId) {
+        return
+      }
+      deleteObstacle(state.activeObstacleId)
       clearSelectionState()
     },
     onSetVertex: applyVertexHeight,
@@ -276,21 +397,37 @@ export function useSunCastController(): {
   }
 
   const canvasModel: SunCastCanvasModel = {
+    editMode,
     footprints,
     activeFootprint,
     selectedFootprintIds,
-    drawDraft: state.drawDraft,
-    isDrawing: state.isDrawing,
+    drawDraftRoof: state.drawDraft,
+    isDrawingRoof: state.isDrawing,
+    obstacles,
+    activeObstacle,
+    selectedObstacleIds: selectedObstacles.map((obstacle) => obstacle.id),
+    drawDraftObstacle: state.obstacleDrawDraft,
+    isDrawingObstacle: state.isDrawingObstacle,
     orbitEnabled,
     roofMeshes: solved.entries.map((entry) => entry.mesh),
+    obstacleMeshes,
     vertexConstraints: activeConstraints.vertexHeights,
     selectedVertexIndex: safeSelectedVertexIndex,
     selectedEdgeIndex: safeSelectedEdgeIndex,
     showSolveHint: !solved.activeSolved,
     sunProjectionEnabled: sunProjection.enabled,
+    shadingEnabled: state.shadingSettings.enabled,
     hasValidSunDatetime,
     sunDatetimeError,
     sunProjectionResult,
+    shadingHeatmapFeatures: shadingResult.heatmapFeatures,
+    shadingComputeState: shadingResult.computeState,
+    shadingComputeMode: shadingResult.computeMode,
+    shadingResultStatus: shadingResult.resultStatus,
+    shadingStatusMessage: shadingResult.statusMessage,
+    shadingDiagnostics: shadingResult.diagnostics,
+    shadingGridResolutionM: state.shadingSettings.gridResolutionM,
+    shadingUsedGridResolutionM: shadingResult.usedGridResolutionM,
     sunDatetimeRaw,
     sunDailyDateRaw,
     sunDailyTimeZone,
@@ -313,17 +450,32 @@ export function useSunCastController(): {
       }
       clearSelectionState()
     },
+    onSelectObstacle: (obstacleId, multiSelect) => {
+      if (multiSelect) {
+        toggleObstacleSelection(obstacleId)
+      } else {
+        selectOnlyObstacle(obstacleId)
+      }
+      clearSelectionState()
+    },
     onClearSelection: () => {
       clearSelectionState()
       clearFootprintSelection()
+      clearObstacleSelection()
     },
     onMoveVertex: moveVertexIfValid,
     onMoveEdge: moveEdgeIfValid,
+    onMoveObstacleVertex: moveObstacleVertex,
     onMoveRejected: setMoveRejectedError,
     onAdjustHeight: applyHeightStep,
     onMapClick: addDraftPoint,
     onCloseDrawing: () => {
       commitFootprint()
+      clearSelectionState()
+    },
+    onObstacleMapClick: addObstacleDraftPoint,
+    onCloseObstacleDrawing: () => {
+      commitObstacle()
       clearSelectionState()
     },
     onBearingChange: setMapBearingDeg,

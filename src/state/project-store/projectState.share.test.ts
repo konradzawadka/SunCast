@@ -8,6 +8,7 @@ import {
 
 const DEFAULT_SUN = { enabled: true, datetimeIso: null, dailyDateIso: null }
 const DEFAULT_KWP = 4.3
+const DEFAULT_SHADING = { enabled: true, gridResolutionM: 0.5 }
 
 describe('projectState.share', () => {
   it('builds and deserializes shared payload', () => {
@@ -37,7 +38,7 @@ describe('projectState.share', () => {
       },
     })
 
-    const loaded = deserializeSharePayload(serializeSharePayload(payload), DEFAULT_SUN, DEFAULT_KWP)
+    const loaded = deserializeSharePayload(serializeSharePayload(payload), DEFAULT_SUN, DEFAULT_KWP, DEFAULT_SHADING)
     expect(loaded.activeFootprintId).toBe('fp1')
     expect(loaded.selectedFootprintIds).toEqual(['fp1'])
     expect(loaded.footprints.fp1.footprint.kwp).toBe(6)
@@ -55,7 +56,9 @@ describe('projectState.share', () => {
       }),
     ).toBe(false)
 
-    expect(() => deserializeSharePayload('{"version":2}', DEFAULT_SUN, DEFAULT_KWP)).toThrow('Invalid share payload')
+    expect(() => deserializeSharePayload('{"version":2}', DEFAULT_SUN, DEFAULT_KWP, DEFAULT_SHADING)).toThrow(
+      'Invalid share payload',
+    )
   })
 
   it('migrates legacy v1 payload into current schema', () => {
@@ -76,7 +79,7 @@ describe('projectState.share', () => {
       activeFootprintId: 'legacy',
     })
 
-    const loaded = deserializeSharePayload(legacy, DEFAULT_SUN, DEFAULT_KWP)
+    const loaded = deserializeSharePayload(legacy, DEFAULT_SUN, DEFAULT_KWP, DEFAULT_SHADING)
     expect(loaded.activeFootprintId).toBe('legacy')
     expect(loaded.footprints.legacy.constraints.vertexHeights).toEqual([{ vertexIndex: 2, heightM: 4.1 }])
   })

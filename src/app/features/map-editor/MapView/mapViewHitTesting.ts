@@ -34,3 +34,9 @@ export function getFootprintHit(hits: maplibregl.MapGeoJSONFeature[], layerId: s
   const footprintId = feature?.properties?.footprintId
   return typeof footprintId === 'string' && footprintId.length > 0 ? footprintId : null
 }
+
+export function getObstacleHit(hits: maplibregl.MapGeoJSONFeature[], layerId: string): string | null {
+  const feature = hits.find((candidate) => candidate.layer.id === layerId)
+  const obstacleId = feature?.properties?.obstacleId
+  return typeof obstacleId === 'string' && obstacleId.length > 0 ? obstacleId : null
+}

@@ -1,12 +1,31 @@
-import type { ProjectData, ProjectSunProjectionSettings } from '../../types/geometry'
+import type { ProjectData, ProjectSunProjectionSettings, ShadingSettings } from '../../types/geometry'
 import { fromStoredFootprint, toStoredFootprint } from './projectState.mappers'
 import { createProjectStoragePayload, migrateProjectStoragePayload } from './projectState.schema'
 import type { ProjectState } from './projectState.types'
 
 const STORAGE_KEY = 'suncast_project'
 
+function normalizeStoredObstacles(
+  obstacles: ProjectData['obstacles'] | undefined,
+): NonNullable<ProjectData['obstacles']> {
+  if (!obstacles) {
+    return {}
+  }
+
+  const entries = Object.values(obstacles).filter(
+    (obstacle): obstacle is NonNullable<ProjectData['obstacles']>[string] =>
+      Boolean(obstacle) &&
+      typeof obstacle.id === 'string' &&
+      Array.isArray(obstacle.polygon) &&
+      Number.isFinite(obstacle.heightAboveGroundM),
+  )
+
+  return Object.fromEntries(entries.map((obstacle) => [obstacle.id, obstacle]))
+}
+
 export function readStorage(
   defaultSunProjection: ProjectSunProjectionSettings,
+  defaultShadingSettings: ShadingSettings,
   defaultFootprintKwp: number,
   currentSolverConfigVersion: string,
 ): ProjectState | null {
@@ -26,6 +45,7 @@ export function readStorage(
     const footprints = Object.fromEntries(
       entries.map((entry) => [entry.id, fromStoredFootprint(entry, defaultFootprintKwp)]),
     )
+    const obstacles = normalizeStoredObstacles(migrated.obstacles)
 
     return {
       footprints,
@@ -33,10 +53,19 @@ export function readStorage(
       selectedFootprintIds: [],
       drawDraft: [],
       isDrawing: false,
+      obstacles,
+      activeObstacleId: migrated.activeObstacleId && obstacles[migrated.activeObstacleId] ? migrated.activeObstacleId : null,
+      selectedObstacleIds: [],
+      obstacleDrawDraft: [],
+      isDrawingObstacle: false,
       sunProjection: {
         enabled: migrated.sunProjection?.enabled ?? defaultSunProjection.enabled,
         datetimeIso: migrated.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
         dailyDateIso: migrated.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
+      },
+      shadingSettings: {
+        enabled: migrated.shadingSettings?.enabled ?? defaultShadingSettings.enabled,
+        gridResolutionM: migrated.shadingSettings?.gridResolutionM ?? defaultShadingSettings.gridResolutionM,
       },
     }
   } catch {
@@ -45,7 +74,10 @@ export function readStorage(
 }
 
 export function writeStorage(
-  state: Pick<ProjectState, 'footprints' | 'activeFootprintId' | 'sunProjection'>,
+  state: Pick<
+    ProjectState,
+    'footprints' | 'activeFootprintId' | 'obstacles' | 'activeObstacleId' | 'sunProjection' | 'shadingSettings'
+  >,
   currentSolverConfigVersion: string,
   defaultFootprintKwp: number,
 ): void {
@@ -56,8 +88,11 @@ export function writeStorage(
   const data: ProjectData = {
     footprints,
     activeFootprintId: state.activeFootprintId,
+    obstacles: state.obstacles,
+    activeObstacleId: state.activeObstacleId,
     solverConfigVersion: currentSolverConfigVersion,
     sunProjection: state.sunProjection,
+    shadingSettings: state.shadingSettings,
   }
 
   const payload = createProjectStoragePayload(data, currentSolverConfigVersion)

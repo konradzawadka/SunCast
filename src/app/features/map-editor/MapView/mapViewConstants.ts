@@ -15,11 +15,15 @@ export const ORBIT_STEER_PITCH_PER_PIXEL_DEG = 0.2
 export const FOOTPRINT_HIT_LAYER_ID = 'footprints-hit'
 export const EDGE_HIT_LAYER_ID = 'active-footprint-edge-hit'
 export const VERTEX_HIT_LAYER_ID = 'active-footprint-vertex-hit'
+export const OBSTACLE_HIT_LAYER_ID = 'obstacles-hit'
+export const OBSTACLE_VERTEX_HIT_LAYER_ID = 'active-obstacle-vertex-hit'
 
 export const FOOTPRINTS_SOURCE_ID = 'footprints'
 export const ACTIVE_EDGES_SOURCE_ID = 'active-footprint-edges'
 export const ACTIVE_VERTICES_SOURCE_ID = 'active-footprint-vertices'
 export const ACTIVE_EDGE_LABELS_SOURCE_ID = 'active-footprint-edge-labels'
+export const OBSTACLES_SOURCE_ID = 'obstacles'
+export const ACTIVE_OBSTACLE_VERTICES_SOURCE_ID = 'active-obstacle-vertices'
 export const DRAFT_SOURCE_ID = 'draft'
 
 export const HEIGHT_STEP_M = 0.1

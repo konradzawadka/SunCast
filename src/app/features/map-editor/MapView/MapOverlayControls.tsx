@@ -11,7 +11,7 @@ interface MapOverlayControlsProps {
   onToggleSunPerspective: () => void
   meshesVisible: boolean
   onToggleMeshesVisible: () => void
-  roofMeshesCount: number
+  meshCount: number
   isDrawing: boolean
   hasActiveFootprint: boolean
   hoveredEdgeLength: HoveredEdgeLength | null
@@ -34,7 +34,7 @@ export function MapOverlayControls({
   onToggleSunPerspective,
   meshesVisible,
   onToggleMeshesVisible,
-  roofMeshesCount,
+  meshCount,
   isDrawing,
   hasActiveFootprint,
   hoveredEdgeLength,
@@ -76,7 +76,7 @@ export function MapOverlayControls({
         type="button"
         className="map-debug-toggle"
         onClick={onToggleMeshesVisible}
-        title="Show/hide solved roof meshes in orbit mode."
+        title="Show/hide roof and obstacle meshes in orbit mode."
         data-testid="mesh-visibility-toggle-button"
         disabled={!orbitEnabled}
       >
@@ -118,9 +118,9 @@ export function MapOverlayControls({
           </button>
         </div>
       )}
-      {orbitEnabled && roofMeshesCount === 0 && !isDrawing && (
+      {orbitEnabled && meshCount === 0 && !isDrawing && (
         <div className="map-debug-hint" data-testid="map-debug-hint">
-          Mesh needs a solved roof (set at least 3 constraints).
+          Meshes need a solved roof or at least one obstacle.
         </div>
       )}
       {hoveredEdgeLength && !isDrawing && !orbitEnabled && (

@@ -8,11 +8,13 @@ import {
   MAX_ORBIT_PITCH_DEG,
   ORBIT_STEER_BEARING_PER_PIXEL_DEG,
   ORBIT_STEER_PITCH_PER_PIXEL_DEG,
+  OBSTACLE_HIT_LAYER_ID,
+  OBSTACLE_VERTEX_HIT_LAYER_ID,
   VERTEX_HIT_LAYER_ID,
 } from './mapViewConstants'
 import { angleFromSouthDeg, pointAtDistanceMeters, segmentAzimuthDeg, segmentLengthMeters, snapDrawPointToRightAngle } from './drawingAssist'
 import { edgeLengthMeters } from './mapViewGeoJson'
-import { getEdgeHit, getFootprintHit, getHitFeatures, getVertexHit } from './mapViewHitTesting'
+import { getEdgeHit, getFootprintHit, getHitFeatures, getObstacleHit, getVertexHit } from './mapViewHitTesting'
 import type { MutableRefObject } from 'react'
 import type {
   DragState,
@@ -118,6 +120,14 @@ export function createMapInteractionHandlers({
       return
     }
 
+    if (refs.editModeRef.current === 'obstacle') {
+      const obstacleHits = getHitFeatures(map, event.point, DRAG_HIT_TOLERANCE_PX, [OBSTACLE_VERTEX_HIT_LAYER_ID])
+      const obstacleVertexIndex = getVertexHit(obstacleHits, OBSTACLE_VERTEX_HIT_LAYER_ID)
+      map.getCanvas().style.cursor = obstacleVertexIndex !== null ? 'grab' : ''
+      setHoveredEdgeLength(null)
+      return
+    }
+
     const active = refs.activeFootprintRef.current
     const hits = getHitFeatures(map, event.point, DRAG_HIT_TOLERANCE_PX, [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID])
     const vertexIndex = getVertexHit(hits, VERTEX_HIT_LAYER_ID)
@@ -154,6 +164,23 @@ export function createMapInteractionHandlers({
   const handleDragMove = (event: maplibregl.MapMouseEvent) => {
     const dragState = dragStateRef.current
     if (!dragState || refs.drawingRef.current || refs.orbitEnabledRef.current) {
+      return
+    }
+
+    if (dragState.type === 'obstacle-vertex') {
+      if (!dragState.obstacleId) {
+        return
+      }
+
+      const applied = refs.onMoveObstacleVertexRef.current(dragState.obstacleId, dragState.index, [
+        event.lngLat.lng,
+        event.lngLat.lat,
+      ])
+      if (!applied) {
+        dragState.invalidAttempted = true
+      } else {
+        dragState.lastLngLat = [event.lngLat.lng, event.lngLat.lat]
+      }
       return
     }
 
@@ -226,11 +253,18 @@ export function createMapInteractionHandlers({
       return
     }
 
-    const hits = getHitFeatures(map, event.point, CLICK_HIT_TOLERANCE_PX, [
-      VERTEX_HIT_LAYER_ID,
-      EDGE_HIT_LAYER_ID,
-      FOOTPRINT_HIT_LAYER_ID,
-    ])
+    if (refs.editModeRef.current === 'obstacle') {
+      const hits = getHitFeatures(map, event.point, CLICK_HIT_TOLERANCE_PX, [OBSTACLE_VERTEX_HIT_LAYER_ID, OBSTACLE_HIT_LAYER_ID])
+      const obstacleId = getObstacleHit(hits, OBSTACLE_HIT_LAYER_ID)
+      if (obstacleId) {
+        refs.onSelectObstacleRef.current(obstacleId, event.originalEvent.ctrlKey || event.originalEvent.metaKey)
+        return
+      }
+      refs.onClearSelectionRef.current()
+      return
+    }
+
+    const hits = getHitFeatures(map, event.point, CLICK_HIT_TOLERANCE_PX, [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID, FOOTPRINT_HIT_LAYER_ID])
 
     const vertexIndex = getVertexHit(hits, VERTEX_HIT_LAYER_ID)
     if (vertexIndex !== null) {
@@ -266,6 +300,30 @@ export function createMapInteractionHandlers({
     }
 
     if (refs.drawingRef.current || refs.orbitEnabledRef.current) {
+      return
+    }
+
+    if (refs.editModeRef.current === 'obstacle') {
+      const activeObstacle = refs.activeObstacleRef.current
+      if (!activeObstacle) {
+        return
+      }
+      const hits = getHitFeatures(map, event.point, DRAG_HIT_TOLERANCE_PX, [OBSTACLE_VERTEX_HIT_LAYER_ID])
+      const vertexIndex = getVertexHit(hits, OBSTACLE_VERTEX_HIT_LAYER_ID)
+      if (vertexIndex === null) {
+        return
+      }
+
+      dragStateRef.current = {
+        type: 'obstacle-vertex',
+        obstacleId: activeObstacle.id,
+        index: vertexIndex,
+        lastLngLat: [event.lngLat.lng, event.lngLat.lat],
+        invalidAttempted: false,
+      }
+      refs.onGeometryDragStateChangeRef.current(true)
+      map.dragPan.disable()
+      map.getCanvas().style.cursor = 'grabbing'
       return
     }
 

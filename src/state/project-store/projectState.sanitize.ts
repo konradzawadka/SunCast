@@ -1,4 +1,9 @@
-import type { FootprintPolygon, ProjectSunProjectionSettings } from '../../types/geometry'
+import type {
+  FootprintPolygon,
+  ObstacleStateEntry,
+  ProjectSunProjectionSettings,
+  ShadingSettings,
+} from '../../types/geometry'
 import { sanitizeVertexHeights } from './projectState.constraints'
 import type { FootprintStateEntry, ProjectState } from './projectState.types'
 
@@ -16,8 +21,10 @@ export function sanitizeLoadedState(
   state: ProjectState,
   defaultSunProjection: ProjectSunProjectionSettings,
   defaultFootprintKwp: number,
+  defaultShadingSettings: ShadingSettings,
 ): ProjectState {
   const sanitized: Record<string, FootprintStateEntry> = {}
+  const sanitizedObstacles: Record<string, ObstacleStateEntry> = {}
 
   for (const [footprintId, entry] of Object.entries(state.footprints)) {
     if (!entry.footprint || !Array.isArray(entry.footprint.vertices)) {
@@ -40,6 +47,38 @@ export function sanitizeLoadedState(
   }
 
   const ids = Object.keys(sanitized)
+  for (const [obstacleId, obstacle] of Object.entries(state.obstacles ?? {})) {
+    if (!obstacle || !Array.isArray(obstacle.polygon) || obstacle.polygon.length < 3) {
+      continue
+    }
+
+    const id = typeof obstacle.id === 'string' && obstacle.id.length > 0 ? obstacle.id : obstacleId
+    const kind = obstacle.kind ?? 'custom'
+    const heightAboveGroundM = Number.isFinite(obstacle.heightAboveGroundM)
+      ? Math.max(0, obstacle.heightAboveGroundM)
+      : 0
+
+    const polygon = obstacle.polygon.filter(
+      (vertex): vertex is [number, number] =>
+        Array.isArray(vertex) &&
+        vertex.length === 2 &&
+        Number.isFinite(vertex[0]) &&
+        Number.isFinite(vertex[1]),
+    )
+    if (polygon.length < 3) {
+      continue
+    }
+
+    sanitizedObstacles[id] = {
+      id,
+      kind,
+      polygon,
+      heightAboveGroundM,
+      label: typeof obstacle.label === 'string' ? obstacle.label : undefined,
+    }
+  }
+
+  const obstacleIds = Object.keys(sanitizedObstacles)
   return {
     ...state,
     footprints: sanitized,
@@ -48,10 +87,24 @@ export function sanitizeLoadedState(
       state.activeFootprintId && sanitized[state.activeFootprintId]
         ? state.activeFootprintId
         : (ids.at(-1) ?? null),
+    obstacles: sanitizedObstacles,
+    selectedObstacleIds: (state.selectedObstacleIds ?? []).filter((id) => Boolean(sanitizedObstacles[id])),
+    activeObstacleId:
+      state.activeObstacleId && sanitizedObstacles[state.activeObstacleId]
+        ? state.activeObstacleId
+        : (obstacleIds.at(-1) ?? null),
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: {
       enabled: state.sunProjection?.enabled ?? defaultSunProjection.enabled,
       datetimeIso: state.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
       dailyDateIso: state.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
+    },
+    shadingSettings: {
+      enabled: state.shadingSettings?.enabled ?? defaultShadingSettings.enabled,
+      gridResolutionM: Number.isFinite(state.shadingSettings?.gridResolutionM)
+        ? Math.max(0.1, state.shadingSettings.gridResolutionM)
+        : defaultShadingSettings.gridResolutionM,
     },
   }
 }

@@ -1,4 +1,10 @@
-import type { FootprintPolygon, ProjectSunProjectionSettings } from '../../types/geometry'
+import type {
+  FootprintPolygon,
+  ObstaclePolygon,
+  ObstacleStateEntry,
+  ProjectSunProjectionSettings,
+  ShadingSettings,
+} from '../../types/geometry'
 import { sanitizeLoadedState } from './projectState.sanitize'
 import { sanitizeVertexHeights, setOrReplaceVertexConstraint } from './projectState.constraints'
 import type { Action, FootprintStateEntry, ProjectState } from './projectState.types'
@@ -9,6 +15,11 @@ export const DEFAULT_SUN_PROJECTION: ProjectSunProjectionSettings = {
   datetimeIso: null,
   dailyDateIso: null,
 }
+export const DEFAULT_SHADING_SETTINGS: ShadingSettings = {
+  enabled: true,
+  gridResolutionM: 0.5,
+}
+export const DEFAULT_OBSTACLE_HEIGHT_M = 8
 
 export const initialProjectState: ProjectState = {
   footprints: {},
@@ -16,7 +27,13 @@ export const initialProjectState: ProjectState = {
   selectedFootprintIds: [],
   drawDraft: [],
   isDrawing: false,
+  obstacles: {},
+  activeObstacleId: null,
+  selectedObstacleIds: [],
+  obstacleDrawDraft: [],
+  isDrawingObstacle: false,
   sunProjection: DEFAULT_SUN_PROJECTION,
+  shadingSettings: DEFAULT_SHADING_SETTINGS,
 }
 const MIN_PITCH_ADJUSTMENT_PERCENT = -90
 const MAX_PITCH_ADJUSTMENT_PERCENT = 200
@@ -33,6 +50,13 @@ function generateFootprintId(): string {
     return `fp-${crypto.randomUUID()}`
   }
   return `fp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function generateObstacleId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `ob-${crypto.randomUUID()}`
+  }
+  return `ob-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function applyToActiveFootprint(
@@ -70,6 +94,41 @@ function removeFootprintAndPickActive(state: ProjectState, footprintId: string):
         ? (nextIds.at(-1) ?? null)
         : (state.activeFootprintId && nextFootprints[state.activeFootprintId] ? state.activeFootprintId : nextIds.at(-1) ?? null),
     selectedFootprintIds: state.selectedFootprintIds.filter((id) => id !== footprintId && nextFootprints[id]),
+  }
+}
+
+function applyToObstacle(
+  state: ProjectState,
+  obstacleId: string,
+  updater: (entry: ObstacleStateEntry) => ObstacleStateEntry,
+): ProjectState {
+  const obstacle = state.obstacles[obstacleId]
+  if (!obstacle) {
+    return state
+  }
+
+  return {
+    ...state,
+    obstacles: {
+      ...state.obstacles,
+      [obstacleId]: updater(obstacle),
+    },
+  }
+}
+
+function removeObstacleAndPickActive(state: ProjectState, obstacleId: string): ProjectState {
+  const nextObstacles = { ...state.obstacles }
+  delete nextObstacles[obstacleId]
+  const nextIds = Object.keys(nextObstacles)
+
+  return {
+    ...state,
+    obstacles: nextObstacles,
+    activeObstacleId:
+      state.activeObstacleId === obstacleId
+        ? (nextIds.at(-1) ?? null)
+        : (state.activeObstacleId && nextObstacles[state.activeObstacleId] ? state.activeObstacleId : nextIds.at(-1) ?? null),
+    selectedObstacleIds: state.selectedObstacleIds.filter((id) => id !== obstacleId && nextObstacles[id]),
   }
 }
 
@@ -328,6 +387,145 @@ export function projectStateReducer(state: ProjectState, action: Action): Projec
           dailyDateIso: action.dailyDateIso,
         },
       }
+    case 'START_OBSTACLE_DRAW':
+      return { ...state, isDrawingObstacle: true, obstacleDrawDraft: [] }
+    case 'CANCEL_OBSTACLE_DRAW':
+      return { ...state, isDrawingObstacle: false, obstacleDrawDraft: [] }
+    case 'ADD_OBSTACLE_DRAFT_POINT':
+      return {
+        ...state,
+        obstacleDrawDraft: [...state.obstacleDrawDraft, action.point],
+      }
+    case 'UNDO_OBSTACLE_DRAFT_POINT':
+      return {
+        ...state,
+        obstacleDrawDraft: state.obstacleDrawDraft.slice(0, -1),
+      }
+    case 'COMMIT_OBSTACLE': {
+      if (state.obstacleDrawDraft.length < 3) {
+        return state
+      }
+
+      const obstacleId = generateObstacleId()
+      const polygon: ObstaclePolygon = {
+        id: obstacleId,
+        vertices: state.obstacleDrawDraft,
+      }
+      const obstacle: ObstacleStateEntry = {
+        id: obstacleId,
+        kind: 'custom',
+        polygon: polygon.vertices,
+        heightAboveGroundM: DEFAULT_OBSTACLE_HEIGHT_M,
+      }
+
+      return {
+        ...state,
+        obstacles: {
+          ...state.obstacles,
+          [obstacleId]: obstacle,
+        },
+        activeObstacleId: obstacleId,
+        selectedObstacleIds: [obstacleId],
+        isDrawingObstacle: false,
+        obstacleDrawDraft: [],
+      }
+    }
+    case 'SET_ACTIVE_OBSTACLE':
+      if (!state.obstacles[action.obstacleId]) {
+        return state
+      }
+      return {
+        ...state,
+        activeObstacleId: action.obstacleId,
+      }
+    case 'SELECT_ONLY_OBSTACLE':
+      if (!state.obstacles[action.obstacleId]) {
+        return state
+      }
+      return {
+        ...state,
+        selectedObstacleIds: [action.obstacleId],
+        activeObstacleId: action.obstacleId,
+      }
+    case 'TOGGLE_OBSTACLE_SELECTION':
+      if (!state.obstacles[action.obstacleId]) {
+        return state
+      }
+      if (state.selectedObstacleIds.includes(action.obstacleId)) {
+        const nextSelected = state.selectedObstacleIds.filter((id) => id !== action.obstacleId)
+        return {
+          ...state,
+          selectedObstacleIds: nextSelected,
+          activeObstacleId:
+            state.activeObstacleId === action.obstacleId
+              ? (nextSelected.at(-1) ?? state.activeObstacleId)
+              : state.activeObstacleId,
+        }
+      }
+      return {
+        ...state,
+        selectedObstacleIds: [...state.selectedObstacleIds, action.obstacleId],
+        activeObstacleId: action.obstacleId,
+      }
+    case 'SELECT_ALL_OBSTACLES':
+      return {
+        ...state,
+        selectedObstacleIds: Object.keys(state.obstacles),
+      }
+    case 'CLEAR_OBSTACLE_SELECTION':
+      return {
+        ...state,
+        selectedObstacleIds: [],
+      }
+    case 'DELETE_OBSTACLE':
+      if (!state.obstacles[action.obstacleId]) {
+        return state
+      }
+      return removeObstacleAndPickActive(state, action.obstacleId)
+    case 'SET_OBSTACLE_HEIGHT':
+      return applyToObstacle(state, action.payload.obstacleId, (entry) => ({
+        ...entry,
+        heightAboveGroundM: Number.isFinite(action.payload.heightAboveGroundM)
+          ? Math.max(0, action.payload.heightAboveGroundM)
+          : entry.heightAboveGroundM,
+      }))
+    case 'SET_OBSTACLE_KIND':
+      return applyToObstacle(state, action.payload.obstacleId, (entry) => ({
+        ...entry,
+        kind: action.payload.kind,
+      }))
+    case 'MOVE_OBSTACLE_VERTEX':
+      return applyToObstacle(state, action.payload.obstacleId, (entry) => {
+        const vertexCount = entry.polygon.length
+        const { vertexIndex, point } = action.payload
+        if (vertexIndex < 0 || vertexIndex >= vertexCount) {
+          return entry
+        }
+        const nextVertices = [...entry.polygon]
+        nextVertices[vertexIndex] = point
+        return {
+          ...entry,
+          polygon: nextVertices,
+        }
+      })
+    case 'SET_SHADING_ENABLED':
+      return {
+        ...state,
+        shadingSettings: {
+          ...state.shadingSettings,
+          enabled: action.enabled,
+        },
+      }
+    case 'SET_SHADING_GRID_RESOLUTION':
+      return {
+        ...state,
+        shadingSettings: {
+          ...state.shadingSettings,
+          gridResolutionM: Number.isFinite(action.gridResolutionM)
+            ? Math.max(0.1, action.gridResolutionM)
+            : state.shadingSettings.gridResolutionM,
+        },
+      }
     case 'UPSERT_IMPORTED_FOOTPRINTS': {
       if (action.entries.length === 0) {
         return state
@@ -363,7 +561,7 @@ export function projectStateReducer(state: ProjectState, action: Action): Projec
       }
     }
     case 'LOAD':
-      return sanitizeLoadedState(action.payload, DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP)
+      return sanitizeLoadedState(action.payload, DEFAULT_SUN_PROJECTION, DEFAULT_FOOTPRINT_KWP, DEFAULT_SHADING_SETTINGS)
     default:
       return state
   }

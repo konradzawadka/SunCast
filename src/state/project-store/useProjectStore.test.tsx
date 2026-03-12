@@ -51,7 +51,13 @@ function createState(id: string): ProjectState {
     selectedFootprintIds: [id],
     drawDraft: [],
     isDrawing: false,
+    obstacles: {},
+    activeObstacleId: null,
+    selectedObstacleIds: [],
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: { enabled: true, datetimeIso: null, dailyDateIso: null },
+    shadingSettings: { enabled: true, gridResolutionM: 0.5 },
   }
 }
 

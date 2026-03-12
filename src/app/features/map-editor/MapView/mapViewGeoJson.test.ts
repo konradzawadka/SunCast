@@ -5,6 +5,7 @@ import {
   syncInteractiveSources,
   toEdgeHeightLabelFeatures,
   toFootprintFeatures,
+  toObstacleFeatures,
   toRing,
 } from './mapViewGeoJson'
 
@@ -37,6 +38,33 @@ describe('mapViewGeoJson', () => {
       footprintId: 'valid',
       active: 1,
       selected: 1,
+    })
+  })
+
+  it('builds obstacle features with selection and active flags', () => {
+    const features = toObstacleFeatures(
+      [
+        {
+          id: 'ob-1',
+          kind: 'tree',
+          polygon: [
+            [1, 1],
+            [2, 1],
+            [2, 2],
+          ],
+          heightAboveGroundM: 8,
+        },
+      ],
+      'ob-1',
+      new Set(['ob-1']),
+    )
+
+    expect(features).toHaveLength(1)
+    expect(features[0].properties).toMatchObject({
+      obstacleId: 'ob-1',
+      active: 1,
+      selected: 1,
+      heightM: 8,
     })
   })
 
@@ -98,9 +126,11 @@ describe('mapViewGeoJson', () => {
       getSource(id: string) {
         if (
           id === 'footprints' ||
+          id === 'obstacles' ||
           id === 'active-footprint-edges' ||
           id === 'active-footprint-vertices' ||
-          id === 'active-footprint-edge-labels'
+          id === 'active-footprint-edge-labels' ||
+          id === 'active-obstacle-vertices'
         ) {
           return source
         }
@@ -113,13 +143,16 @@ describe('mapViewGeoJson', () => {
       footprints: [{ id: 'f', vertices: [[1, 1], [2, 2], [2, 1]], kwp: 1 }],
       activeFootprint: null,
       selectedFootprintIds: [],
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacleIds: [],
       vertexConstraints,
       selectedVertexIndex: null,
       selectedEdgeIndex: null,
     })
 
-    expect(calls).toHaveLength(4)
-    expect(calls.slice(1)).toEqual([
+    expect(calls).toHaveLength(6)
+    expect(calls.slice(3)).toEqual([
       { type: 'FeatureCollection', features: [] },
       { type: 'FeatureCollection', features: [] },
       { type: 'FeatureCollection', features: [] },

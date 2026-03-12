@@ -1,8 +1,17 @@
 import type { SunProjectionResult } from '../../geometry/sun/sunProjection'
-import type { FaceConstraints, FootprintPolygon, RoofMeshData, SolverWarning } from '../../types/geometry'
+import type {
+  FaceConstraints,
+  FootprintPolygon,
+  ObstacleKind,
+  ObstacleStateEntry,
+  RoofMeshData,
+  SolverWarning,
+} from '../../types/geometry'
 import type { ImportedFootprintConfigEntry } from '../features/debug/DevTools'
 import type { PlaceSearchResult } from '../features/place-search/placeSearch.types'
 import type { SelectedRoofSunInput } from '../features/sun-tools/SunOverlayColumn'
+import type { RoofShadingComputeState, ShadeHeatmapFeature } from './useRoofShading'
+import type { ComputeRoofShadeGridResult, RoofShadeDiagnostics } from '../../geometry/shading'
 
 export const MIN_PITCH_ADJUSTMENT_PERCENT = -90
 export const MAX_PITCH_ADJUSTMENT_PERCENT = 200
@@ -28,12 +37,18 @@ export function computeFootprintCentroid(vertices: Array<[number, number]>): [nu
 }
 
 export interface SunCastSidebarModel {
-  isDrawing: boolean
-  drawDraftCount: number
+  editMode: 'roof' | 'obstacle'
+  isDrawingRoof: boolean
+  isDrawingObstacle: boolean
+  drawDraftCountRoof: number
+  drawDraftCountObstacle: number
   footprints: FootprintPolygon[]
   activeFootprintId: string | null
   selectedFootprintIds: string[]
   activeFootprint: FootprintPolygon | null
+  obstacles: ObstacleStateEntry[]
+  activeObstacle: ObstacleStateEntry | null
+  selectedObstacleIds: string[]
   activeConstraints: FaceConstraints
   selectedVertexIndex: number | null
   selectedEdgeIndex: number | null
@@ -57,14 +72,23 @@ export interface SunCastSidebarModel {
   activeFootprintLonDeg: number | null
   shareError: string | null
   shareSuccess: string | null
+  onSetEditMode: (mode: 'roof' | 'obstacle') => void
   onStartDrawing: () => void
   onUndoDrawing: () => void
   onCancelDrawing: () => void
   onCommitDrawing: () => void
+  onStartObstacleDrawing: () => void
+  onUndoObstacleDrawing: () => void
+  onCancelObstacleDrawing: () => void
+  onCommitObstacleDrawing: () => void
   onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
+  onSelectObstacle: (obstacleId: string, multiSelect: boolean) => void
   onSetActiveFootprintKwp: (kwp: number) => void
+  onSetActiveObstacleHeight: (heightM: number) => void
+  onSetActiveObstacleKind: (kind: ObstacleKind) => void
   onSetPitchAdjustmentPercent: (pitchAdjustmentPercent: number) => void
   onDeleteActiveFootprint: () => void
+  onDeleteActiveObstacle: () => void
   onSetVertex: (vertexIndex: number, heightM: number) => boolean
   onSetEdge: (edgeIndex: number, heightM: number) => boolean
   onClearVertex: (vertexIndex: number) => void
@@ -79,21 +103,37 @@ export interface SunCastSidebarModel {
 }
 
 export interface SunCastCanvasModel {
+  editMode: 'roof' | 'obstacle'
   footprints: FootprintPolygon[]
   activeFootprint: FootprintPolygon | null
   selectedFootprintIds: string[]
-  drawDraft: Array<[number, number]>
-  isDrawing: boolean
+  drawDraftRoof: Array<[number, number]>
+  isDrawingRoof: boolean
+  obstacles: ObstacleStateEntry[]
+  activeObstacle: ObstacleStateEntry | null
+  selectedObstacleIds: string[]
+  drawDraftObstacle: Array<[number, number]>
+  isDrawingObstacle: boolean
   orbitEnabled: boolean
   roofMeshes: RoofMeshData[]
+  obstacleMeshes: RoofMeshData[]
   vertexConstraints: FaceConstraints['vertexHeights']
   selectedVertexIndex: number | null
   selectedEdgeIndex: number | null
   showSolveHint: boolean
   sunProjectionEnabled: boolean
+  shadingEnabled: boolean
   hasValidSunDatetime: boolean
   sunDatetimeError: string | null
   sunProjectionResult: SunProjectionResult | null
+  shadingHeatmapFeatures: ShadeHeatmapFeature[]
+  shadingComputeState: RoofShadingComputeState
+  shadingComputeMode: 'final' | 'coarse'
+  shadingResultStatus: ComputeRoofShadeGridResult['status'] | null
+  shadingStatusMessage: string | null
+  shadingDiagnostics: RoofShadeDiagnostics | null
+  shadingGridResolutionM: number
+  shadingUsedGridResolutionM: number | null
   sunDatetimeRaw: string
   sunDailyDateRaw: string
   sunDailyTimeZone: string
@@ -109,13 +149,17 @@ export interface SunCastCanvasModel {
   onSelectVertex: (vertexIndex: number) => void
   onSelectEdge: (edgeIndex: number) => void
   onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
+  onSelectObstacle: (obstacleId: string, multiSelect: boolean) => void
   onClearSelection: () => void
   onMoveVertex: (vertexIndex: number, point: [number, number]) => boolean
   onMoveEdge: (edgeIndex: number, delta: [number, number]) => boolean
+  onMoveObstacleVertex: (obstacleId: string, vertexIndex: number, point: [number, number]) => boolean
   onMoveRejected: () => void
   onAdjustHeight: (stepM: number) => void
   onMapClick: (point: [number, number]) => void
   onCloseDrawing: () => void
+  onObstacleMapClick: (point: [number, number]) => void
+  onCloseObstacleDrawing: () => void
   onBearingChange: (bearingDeg: number) => void
   onPitchChange: (pitchDeg: number) => void
   onGeometryDragStateChange: (dragging: boolean) => void

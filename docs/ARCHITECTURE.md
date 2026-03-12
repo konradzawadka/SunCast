@@ -5,7 +5,7 @@
 The system is geometry-first.
 
 ```text
-footprint polygon + height constraints -> solved roof plane -> generated mesh
+footprint polygon + height constraints -> solved plane -> generated mesh
 ```
 
 Generated meshes are derived render artifacts and are never persisted as source data.
@@ -16,7 +16,7 @@ Generated meshes are derived render artifacts and are never persisted as source 
 - `src/state/project-store/*`: reducer-based project state, persistence, share payload hydration.
 - `src/app/hooks/*`: application orchestration (selection, interactions, compose UI models).
 - `src/app/features/map-editor/*`: map interactions, drawing, hit-testing, camera/orbit tools.
-- `src/rendering/roof-layer/*`: MapLibre custom layer for roof meshes.
+- `src/rendering/roof-layer/*`: MapLibre custom layers for roof and obstacle meshes.
 - `src/app/features/sun-tools/*`: projection, charts, weather forecast integration.
 - `src/app/features/place-search/*`: Photon provider + search panel.
 
@@ -26,7 +26,7 @@ Generated meshes are derived render artifacts and are never persisted as source 
 2. Write footprint and constraints to project store.
 3. Solve roof plane in `useSolvedRoofEntries`.
 4. Compute metrics and mesh from solved plane.
-5. Render mesh via `RoofMeshLayer` and display metrics/charts in sidebar/overlays.
+5. Render meshes via `RoofMeshLayer` instances and display metrics/charts in sidebar/overlays.
 
 ## External Dependencies
 
