@@ -159,4 +159,47 @@ describe('useProjectStore startup hydration', () => {
     expect(hook.get().state.obstacles).toEqual({})
     hook.unmount()
   })
+
+  it('persists canonical document state with null active ids', async () => {
+    const shared = createState('shared')
+    shared.footprints.another = {
+      footprint: {
+        id: 'another',
+        vertices: [
+          [3, 3],
+          [4, 3],
+          [4, 4],
+        ],
+        kwp: 5,
+      },
+      constraints: { vertexHeights: [] },
+      pitchAdjustmentPercent: 0,
+    }
+    shared.selectedFootprintIds = ['shared', 'another']
+    mockDecodeSharePayloadResult.mockResolvedValue({ ok: true, value: '{"version":1}' })
+    mockDeserializeSharePayloadResult.mockReturnValue({ ok: true, value: shared })
+    mockReadStorage.mockReturnValue({ ok: true, value: null })
+
+    window.history.replaceState({}, '', '/#c=abc')
+    const hook = renderStore()
+    await hook.waitForHydrate()
+
+    act(() => {
+      hook.get().selectOnlyFootprint('another')
+    })
+
+    expect(mockWriteStorage).toHaveBeenCalled()
+    const latestCall = mockWriteStorage.mock.calls.at(-1)
+    expect(latestCall?.[0]).toMatchObject({
+      footprints: expect.any(Object),
+      obstacles: expect.any(Object),
+      sunProjection: expect.any(Object),
+      shadingSettings: expect.any(Object),
+      activeFootprintId: null,
+      activeObstacleId: null,
+    })
+    expect(latestCall?.[0].drawDraft).toBeUndefined()
+    expect(latestCall?.[0].selectedFootprintIds).toBeUndefined()
+    hook.unmount()
+  })
 })

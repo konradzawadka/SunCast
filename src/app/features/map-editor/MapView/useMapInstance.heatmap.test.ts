@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import type { RoofMeshData } from '../../../../types/geometry'
-import type { ShadeHeatmapFeature } from '../../../hooks/useRoofShading'
+import type { ShadeHeatmapFeature } from '../../../../application/analysis/analysis.types'
 import { buildHeatmapGeometry } from './useMapInstance'
 
 vi.mock('maplibre-gl', () => ({

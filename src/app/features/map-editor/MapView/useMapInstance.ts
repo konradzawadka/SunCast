@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import maplibregl from 'maplibre-gl'
 import * as THREE from 'three'
-import type { ShadeHeatmapFeature } from '../../../hooks/useRoofShading'
+import type { ShadeHeatmapFeature } from '../../../../application/analysis/analysis.types'
 import { WorldMeshLayer } from '../../../../rendering/roof-layer/RoofMeshLayer'
 import {
   buildRoofHeatmapOverlayGeometry,

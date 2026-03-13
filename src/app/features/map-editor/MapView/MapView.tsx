@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MapOverlayControls } from './MapOverlayControls'
-import { buildHashWithMapCenter } from './mapCenterFromHash'
 import { useLatest } from './useLatest'
 import { useMapInstance } from './useMapInstance'
 import { useMapInteractions } from './useMapInteractions'
 import { useMapSources } from './useMapSources'
 import { useOrbitCamera } from './useOrbitCamera'
 import { pointAtDistanceMeters } from './drawingAssist'
-import { buildObstacleLayerGeometry, buildRoofLayerGeometry } from '../../../../rendering/roof-layer/layerGeometryAdapters'
 import type { SunCastCanvasModel } from '../../../../application/presentation/presentationModel.types'
+import { useMapLayerSync } from '../../../../adapters/map/useMapLayerSync'
+import { useMapNavigationSync } from '../../../../adapters/map/useMapNavigationSync'
+import { useSunPerspectiveSync } from '../../../../adapters/map/useSunPerspectiveSync'
 
 interface MapViewProps {
   model: SunCastCanvasModel
@@ -31,6 +32,7 @@ export function MapView({ model, onInitialized }: MapViewProps) {
     orbitEnabled,
     onToggleOrbit,
     sunProjectionResult,
+    sunPerspectiveCameraPose,
     shadingEnabled,
     shadingHeatmapFeatures,
     shadingComputeState,
@@ -246,82 +248,31 @@ export function MapView({ model, onInitialized }: MapViewProps) {
     selectedEdgeIndex,
   })
 
-  useEffect(() => {
-    if (!mapLoaded) {
-      return
-    }
-    roofLayerRef.current?.setGeometry(buildRoofLayerGeometry(roofMeshes, 1))
-  }, [mapLoaded, roofLayerRef, roofMeshes])
-
-  useEffect(() => {
-    if (!mapLoaded) {
-      return
-    }
-    obstacleLayerRef.current?.setGeometry(buildObstacleLayerGeometry(obstacleMeshes, 1))
-  }, [mapLoaded, obstacleLayerRef, obstacleMeshes])
-
-  useEffect(() => {
-    if (!mapLoaded) {
-      return
-    }
-    heatmapLayerRef.current?.setRoofMeshes(roofMeshes)
-  }, [heatmapLayerRef, mapLoaded, roofMeshes])
-
-  useEffect(() => {
-    if (!mapLoaded) {
-      return
-    }
-    heatmapLayerRef.current?.setHeatmapFeatures(shadingHeatmapFeatures)
-  }, [heatmapLayerRef, mapLoaded, shadingHeatmapFeatures])
-
-  useEffect(() => {
-    if (!mapLoaded) {
-      return
-    }
-    roofLayerRef.current?.setVisible(orbitEnabled && meshesVisible)
-    obstacleLayerRef.current?.setVisible(orbitEnabled && meshesVisible)
-    heatmapLayerRef.current?.setVisible(orbitEnabled && shadingEnabled && shadingComputeState === 'READY')
-  }, [
-    heatmapLayerRef,
+  useMapLayerSync({
     mapLoaded,
-    meshesVisible,
-    orbitEnabled,
     roofLayerRef,
     obstacleLayerRef,
-    shadingComputeState,
+    heatmapLayerRef,
+    roofMeshes,
+    obstacleMeshes,
+    heatmapFeatures: shadingHeatmapFeatures,
+    orbitEnabled,
+    meshesVisible,
     shadingEnabled,
-  ])
+    shadingComputeState,
+  })
 
-  useEffect(() => {
-    if (!effectiveSunPerspectiveEnabled || !sunProjectionResult) {
-      return
-    }
+  useSunPerspectiveSync({
+    enabled: effectiveSunPerspectiveEnabled,
+    pose: sunPerspectiveCameraPose,
+    setOrbitCameraPose,
+  })
 
-    const normalizedBearingDeg = ((sunProjectionResult.sunAzimuthDeg + 180 + 540) % 360) - 180
-    const pitchDeg = 90 - sunProjectionResult.sunElevationDeg
-    setOrbitCameraPose(normalizedBearingDeg, pitchDeg)
-  }, [effectiveSunPerspectiveEnabled, setOrbitCameraPose, sunProjectionResult])
-
-  useEffect(() => {
-    if (!mapLoaded || !mapNavigationTarget) {
-      return
-    }
-
-    const map = mapRef.current
-    if (!map) {
-      return
-    }
-
-    const center: [number, number] = [mapNavigationTarget.lon, mapNavigationTarget.lat]
-    map.flyTo({
-      center,
-      zoom: Math.max(map.getZoom(), 18),
-      essential: true,
-    })
-
-    const nextHash = buildHashWithMapCenter(window.location.hash, center)
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`)
-  }, [mapLoaded, mapNavigationTarget, mapRef])
+  useMapNavigationSync({
+    mapRef,
+    mapLoaded,
+    mapNavigationTarget,
+  })
 
   return (
     <div className="map-root-wrap">

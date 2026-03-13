@@ -12,6 +12,9 @@ const mockUseProjectStore = vi.fn()
 const mockUseSolvedRoofEntries = vi.fn()
 const mockUseRoofShading = vi.fn()
 const mockUseAnnualRoofSimulation = vi.fn()
+const mockClearSelectionState = vi.fn()
+const mockSelectVertex = vi.fn()
+const mockSelectEdge = vi.fn()
 
 vi.mock('../../state/project-store', () => ({
   useProjectStore: () => mockUseProjectStore(),
@@ -41,9 +44,9 @@ vi.mock('./useSelectionState', () => ({
   useSelectionState: () => ({
     selectedVertexIndex: null,
     selectedEdgeIndex: null,
-    clearSelectionState: vi.fn(),
-    selectVertex: vi.fn(),
-    selectEdge: vi.fn(),
+    clearSelectionState: mockClearSelectionState,
+    selectVertex: mockSelectVertex,
+    selectEdge: mockSelectEdge,
   }),
 }))
 
@@ -160,6 +163,9 @@ function makeState(): ProjectState {
 
 describe('useSunCastController', () => {
   beforeEach(() => {
+    mockClearSelectionState.mockReset()
+    mockSelectVertex.mockReset()
+    mockSelectEdge.mockReset()
     mockUseRoofShading.mockReset()
     mockUseAnnualRoofSimulation.mockReset()
     mockUseRoofShading.mockReturnValue({
@@ -257,6 +263,77 @@ describe('useSunCastController', () => {
     expect(hook.get().canvasModel.selectedRoofInputs[0].footprintId).toBe('a')
     expect(hook.get().canvasModel.selectedRoofInputs[0].kwp).toBe(4)
     expect(hook.get().canvasModel.selectedRoofInputs[0].roofPitchDeg).toBeCloseTo(23.1, 6)
+    hook.unmount()
+  })
+
+  it('routes selection/edit actions through session boundary commands', () => {
+    const state = makeState()
+    const selectOnlyFootprint = vi.fn()
+    const toggleFootprintSelection = vi.fn()
+
+    mockUseProjectStore.mockReturnValue({
+      state,
+      activeFootprint: state.footprints.a.footprint,
+      activeConstraints: { vertexHeights: [] } satisfies FaceConstraints,
+      selectedFootprintIds: state.selectedFootprintIds,
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacles: [],
+      sunProjection: state.sunProjection,
+      startDrawing: vi.fn(),
+      cancelDrawing: vi.fn(),
+      addDraftPoint: vi.fn(),
+      undoDraftPoint: vi.fn(),
+      commitFootprint: vi.fn(),
+      startObstacleDrawing: vi.fn(),
+      cancelObstacleDrawing: vi.fn(),
+      addObstacleDraftPoint: vi.fn(),
+      undoObstacleDraftPoint: vi.fn(),
+      commitObstacle: vi.fn(),
+      deleteFootprint: vi.fn(),
+      deleteObstacle: vi.fn(),
+      moveVertex: vi.fn(),
+      moveEdge: vi.fn(),
+      moveObstacleVertex: vi.fn(() => true),
+      setVertexHeight: vi.fn(),
+      setVertexHeights: vi.fn(),
+      setEdgeHeight: vi.fn(),
+      setObstacleHeight: vi.fn(() => true),
+      setObstacleKind: vi.fn(() => true),
+      clearVertexHeight: vi.fn(),
+      clearEdgeHeight: vi.fn(),
+      setSunProjectionEnabled: vi.fn(),
+      setSunProjectionDatetimeIso: vi.fn(),
+      setSunProjectionDailyDateIso: vi.fn(),
+      setActiveFootprintKwp: vi.fn(),
+      setActivePitchAdjustmentPercent: vi.fn(),
+      selectOnlyFootprint,
+      toggleFootprintSelection,
+      selectAllFootprints: vi.fn(),
+      clearFootprintSelection: vi.fn(),
+      selectOnlyObstacle: vi.fn(),
+      toggleObstacleSelection: vi.fn(),
+      clearObstacleSelection: vi.fn(),
+      upsertImportedFootprints: vi.fn(),
+      startupHydrationError: null,
+      startupDegradedMessages: [],
+    })
+
+    mockUseSolvedRoofEntries.mockReturnValue({
+      entries: [],
+      activeSolved: null,
+      activeError: null,
+    })
+
+    const hook = renderController()
+    act(() => {
+      hook.get().canvasModel.onSelectFootprint('a', false)
+      hook.get().canvasModel.onSelectFootprint('b', true)
+    })
+
+    expect(selectOnlyFootprint).toHaveBeenCalledWith('a')
+    expect(toggleFootprintSelection).toHaveBeenCalledWith('b')
+    expect(mockClearSelectionState).toHaveBeenCalledTimes(2)
     hook.unmount()
   })
 

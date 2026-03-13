@@ -1,8 +1,72 @@
 import type { ShadingRoofInput } from '../../geometry/shading'
-import type { ShadeHeatmapFeature } from '../../app/hooks/useRoofShading'
-import type { AnnualRoofSimulationHookResult } from '../../app/hooks/useAnnualRoofSimulation'
+import type { RoofShadeDiagnostics } from '../../geometry/shading'
+import type { ShadeComputationStatus } from '../../geometry/shading/types'
+import type { AnnualSunAccessResult } from '../../geometry/shading'
+import type { SunProjectionResult } from '../../geometry/sun/sunProjection'
 import type { SolvedEntry } from '../../app/hooks/useSolvedRoofEntries'
 import type { SelectedRoofSunInput } from '../../app/features/sun-tools/SunOverlayColumn'
+
+export interface ShadeHeatmapFeature {
+  type: 'Feature'
+  properties: {
+    roofId: string
+    shade: 0 | 1
+    intensity: number
+  }
+  geometry: {
+    type: 'Polygon'
+    coordinates: number[][][]
+  }
+}
+
+export type RoofShadingComputeState = 'IDLE' | 'SCHEDULED' | 'READY'
+export type AnnualSimulationState = 'IDLE' | 'RUNNING' | 'READY' | 'ERROR'
+
+export interface AnnualSimulationProgress {
+  ratio: number
+  sampledDays: number
+  totalSampledDays: number
+}
+
+export interface AnnualSimulationOptions {
+  year?: number
+  dateStartIso?: string
+  dateEndIso?: string
+  sampleWindowDays: number
+  stepMinutes: number
+  halfYearMirror: boolean
+  lowSunElevationThresholdDeg?: number
+  maxShadowDistanceClampM?: number
+}
+
+export interface AnnualSimulationResult {
+  state: AnnualSimulationState
+  progress: AnnualSimulationProgress
+  result: AnnualSunAccessResult | null
+  heatmapFeatures: ShadeHeatmapFeature[]
+  error: string | null
+  runSimulation: (options: AnnualSimulationOptions) => Promise<void>
+  clearSimulation: () => void
+}
+
+export interface AnalysisDiagnostics {
+  solverError: string | null
+  warnings: string[]
+  shadingResultStatus: ShadeComputationStatus | null
+  shadingStatusMessage: string | null
+  shadingDiagnostics: RoofShadeDiagnostics | null
+}
+
+export interface AnalysisHeatmapState {
+  activeMode: ActiveHeatmapMode
+  requestedMode: RequestedHeatmapMode
+  liveFeatures: ShadeHeatmapFeature[]
+  annualFeatures: ShadeHeatmapFeature[]
+  mapFeatures: ShadeHeatmapFeature[]
+  mapComputeState: RoofShadingComputeState
+  mapEnabled: boolean
+  annualVisible: boolean
+}
 
 export interface AnalysisState {
   solvedRoofs: {
@@ -12,16 +76,28 @@ export interface AnalysisState {
   }
   shadingRoofs: ShadingRoofInput[]
   selectedRoofInputs: SelectedRoofSunInput[]
+  sunProjection: {
+    datetimeRaw: string
+    dailyDateRaw: string
+    dailyTimeZone: string
+    hasValidDatetime: boolean
+    datetimeError: string | null
+    result: SunProjectionResult | null
+    onDatetimeInputChange: (datetimeIsoRaw: string) => void
+  }
   liveShading: {
     heatmapFeatures: ShadeHeatmapFeature[]
-    computeState: 'IDLE' | 'SCHEDULED' | 'READY'
+    computeState: RoofShadingComputeState
     computeMode: 'final' | 'coarse'
-    resultStatus: 'OK' | 'PARTIAL' | 'EMPTY' | 'INVALID_INPUT' | 'NO_SUN' | null
+    resultStatus: ShadeComputationStatus | null
     statusMessage: string | null
-    diagnostics: unknown
+    diagnostics: RoofShadeDiagnostics | null
     usedGridResolutionM: number | null
   }
-  annualSimulation: AnnualRoofSimulationHookResult
+  annualSimulation: AnnualSimulationResult
+  heatmap: AnalysisHeatmapState
+  diagnostics: AnalysisDiagnostics
+  productionComputationEnabled: boolean
 }
 
 export type RequestedHeatmapMode = 'live-shading' | 'annual-sun-access' | 'none'

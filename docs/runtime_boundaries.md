@@ -65,6 +65,18 @@ Rules:
 - map layer emits intents/events only
 - map interaction must not implement geometry solver logic
 
+## Adapter Bridges (`src/adapters/*`)
+
+Responsibilities:
+- encapsulate framework/platform bridge code for map and rendering integration
+- synchronize typed geometry/render contracts into external runtimes (MapLibre/Three/Workers)
+- keep side-effectful lifecycle wiring out of presentation models
+
+Rules:
+- adapters are thin lifecycle/sync/event-emission layers only
+- no domain/solver business rules in adapters
+- adapter inputs must be narrow, typed contracts from `application/*`
+
 ## Rendering (`src/rendering/*`)
 
 Responsibilities:

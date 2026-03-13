@@ -12,8 +12,7 @@ import type {
 import type { ImportedFootprintConfigEntry } from '../../app/features/debug/DevTools'
 import type { PlaceSearchResult } from '../../app/features/place-search/placeSearch.types'
 import type { SelectedRoofSunInput } from '../../app/features/sun-tools/SunOverlayColumn'
-import type { AnnualSimulationOptions, AnnualSimulationState } from '../../app/hooks/useAnnualRoofSimulation'
-import type { RoofShadingComputeState, ShadeHeatmapFeature } from '../../app/hooks/useRoofShading'
+import type { AnnualSimulationOptions, AnnualSimulationState, RoofShadingComputeState, ShadeHeatmapFeature } from '../analysis/analysis.types'
 
 export const MIN_PITCH_ADJUSTMENT_PERCENT = -90
 export const MAX_PITCH_ADJUSTMENT_PERCENT = 200
@@ -126,6 +125,10 @@ export interface SunCastCanvasModel {
   hasValidSunDatetime: boolean
   sunDatetimeError: string | null
   sunProjectionResult: SunProjectionResult | null
+  sunPerspectiveCameraPose: {
+    bearingDeg: number
+    pitchDeg: number
+  } | null
   shadingHeatmapFeatures: ShadeHeatmapFeature[]
   shadingComputeState: RoofShadingComputeState
   annualSimulationHeatmapFeatures: ShadeHeatmapFeature[]
