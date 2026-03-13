@@ -1,5 +1,5 @@
 import { HEIGHT_STEP_M, HEIGHT_STEP_SHIFT_M } from './mapViewConstants'
-import type { DrawingAngleHint, HoveredEdgeLength } from './useMapInteractions'
+import type { DrawingAngleHint, HoveredEdgeLength, VertexDragAngleHint } from './useMapInteractions'
 import { PlaceSearchPanel } from '../../place-search/PlaceSearchPanel'
 import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 
@@ -11,11 +11,12 @@ interface MapOverlayControlsProps {
   onToggleSunPerspective: () => void
   meshesVisible: boolean
   onToggleMeshesVisible: () => void
-  roofMeshesCount: number
+  meshCount: number
   isDrawing: boolean
   hasActiveFootprint: boolean
   hoveredEdgeLength: HoveredEdgeLength | null
   drawingAngleHint: DrawingAngleHint | null
+  vertexDragAngleHint: VertexDragAngleHint | null
   drawLengthInput: string
   onDrawLengthInputChange: (value: string) => void
   onDrawLengthInputSubmit: () => void
@@ -34,11 +35,12 @@ export function MapOverlayControls({
   onToggleSunPerspective,
   meshesVisible,
   onToggleMeshesVisible,
-  roofMeshesCount,
+  meshCount,
   isDrawing,
   hasActiveFootprint,
   hoveredEdgeLength,
   drawingAngleHint,
+  vertexDragAngleHint,
   drawLengthInput,
   onDrawLengthInputChange,
   onDrawLengthInputSubmit,
@@ -76,7 +78,7 @@ export function MapOverlayControls({
         type="button"
         className="map-debug-toggle"
         onClick={onToggleMeshesVisible}
-        title="Show/hide solved roof meshes in orbit mode."
+        title="Show/hide roof and obstacle meshes in orbit mode."
         data-testid="mesh-visibility-toggle-button"
         disabled={!orbitEnabled}
       >
@@ -118,9 +120,9 @@ export function MapOverlayControls({
           </button>
         </div>
       )}
-      {orbitEnabled && roofMeshesCount === 0 && !isDrawing && (
+      {orbitEnabled && meshCount === 0 && !isDrawing && (
         <div className="map-debug-hint" data-testid="map-debug-hint">
-          Mesh needs a solved roof (set at least 3 constraints).
+          Meshes need a solved roof or at least one obstacle.
         </div>
       )}
       {hoveredEdgeLength && !isDrawing && !orbitEnabled && (
@@ -169,6 +171,15 @@ export function MapOverlayControls({
             />
             <span>m</span>
           </label>
+        </div>
+      )}
+      {vertexDragAngleHint && !isDrawing && !orbitEnabled && (
+        <div
+          className="map-edge-hover-label"
+          style={{ left: `${vertexDragAngleHint.left}px`, top: `${vertexDragAngleHint.top}px` }}
+          data-testid="map-vertex-angle-label"
+        >
+          {vertexDragAngleHint.angleDeg.toFixed(1)} deg
         </div>
       )}
       {orbitEnabled && gizmoScreenPos && (

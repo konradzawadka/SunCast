@@ -1,9 +1,9 @@
 import type { ProjectData } from '../../types/geometry'
 
-export const PROJECT_STORAGE_SCHEMA_VERSION = 2
+export const PROJECT_STORAGE_SCHEMA_VERSION = 3
 
-interface ProjectStoragePayloadV2 extends ProjectData {
-  schemaVersion: 2
+interface ProjectStoragePayloadV3 extends ProjectData {
+  schemaVersion: 3
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -27,6 +27,16 @@ function toProjectData(value: Record<string, unknown>): ProjectData | null {
 
   const solverConfigVersion =
     typeof value.solverConfigVersion === 'string' ? value.solverConfigVersion : undefined
+  const obstacles = value.obstacles
+  if (obstacles !== undefined && !isRecord(obstacles)) {
+    return null
+  }
+
+  const activeObstacleId = value.activeObstacleId
+  if (activeObstacleId !== null && activeObstacleId !== undefined && typeof activeObstacleId !== 'string') {
+    return null
+  }
+
   const sunProjectionRaw = value.sunProjection
   const sunProjection =
     isRecord(sunProjectionRaw) &&
@@ -39,19 +49,33 @@ function toProjectData(value: Record<string, unknown>): ProjectData | null {
           dailyDateIso: sunProjectionRaw.dailyDateIso,
         }
       : undefined
+  const shadingSettingsRaw = value.shadingSettings
+  const gridResolutionM = isRecord(shadingSettingsRaw) ? Number(shadingSettingsRaw.gridResolutionM) : NaN
+  const shadingSettings =
+    isRecord(shadingSettingsRaw) &&
+    typeof shadingSettingsRaw.enabled === 'boolean' &&
+    Number.isFinite(gridResolutionM)
+      ? {
+          enabled: shadingSettingsRaw.enabled,
+          gridResolutionM,
+        }
+      : undefined
 
   return {
     footprints: footprints as ProjectData['footprints'],
     activeFootprintId: (activeFootprintId as string | null | undefined) ?? null,
+    obstacles: (obstacles as ProjectData['obstacles']) ?? undefined,
+    activeObstacleId: (activeObstacleId as string | null | undefined) ?? null,
     solverConfigVersion,
     sunProjection,
+    shadingSettings,
   }
 }
 
 export function migrateProjectStoragePayload(
   raw: unknown,
   currentSolverConfigVersion: string,
-): ProjectStoragePayloadV2 | null {
+): ProjectStoragePayloadV3 | null {
   if (!isRecord(raw)) {
     return null
   }
@@ -76,20 +100,26 @@ export function migrateProjectStoragePayload(
     schemaVersion: PROJECT_STORAGE_SCHEMA_VERSION,
     footprints: projectData.footprints,
     activeFootprintId: projectData.activeFootprintId,
+    obstacles: projectData.obstacles,
+    activeObstacleId: projectData.activeObstacleId,
     solverConfigVersion,
     sunProjection: projectData.sunProjection,
+    shadingSettings: projectData.shadingSettings,
   }
 }
 
 export function createProjectStoragePayload(
   data: ProjectData,
   currentSolverConfigVersion: string,
-): ProjectStoragePayloadV2 {
+): ProjectStoragePayloadV3 {
   return {
     schemaVersion: PROJECT_STORAGE_SCHEMA_VERSION,
     footprints: data.footprints,
     activeFootprintId: data.activeFootprintId,
+    obstacles: data.obstacles,
+    activeObstacleId: data.activeObstacleId,
     solverConfigVersion: currentSolverConfigVersion,
     sunProjection: data.sunProjection,
+    shadingSettings: data.shadingSettings,
   }
 }

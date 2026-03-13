@@ -2,7 +2,8 @@ import earcut from 'earcut'
 import type { FootprintPolygon, RoofMeshData } from '../../types/geometry'
 import { projectPointsToLocalMeters } from '../projection/localMeters'
 
-const EDGE_LENGTH_EPSILON_M = 0.01
+const EDGE_LENGTH_EPSILON_M = 0.005
+const TRIANGLE_AREA_EPSILON_M2 = 1e-8
 
 interface SanitizedVertex {
   lon: number
@@ -29,6 +30,35 @@ function signedArea2d(points: Point2[]): number {
     area += a.x * b.y - b.x * a.y
   }
   return area * 0.5
+}
+
+function triangleArea2d(a: Point2, b: Point2, c: Point2): number {
+  return Math.abs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) * 0.5
+}
+
+function filterDegenerateTriangles(points2d: Point2[], triangleIndices: number[]): number[] {
+  const filtered: number[] = []
+  for (let i = 0; i < triangleIndices.length; i += 3) {
+    const ia = triangleIndices[i]
+    const ib = triangleIndices[i + 1]
+    const ic = triangleIndices[i + 2]
+    if (ia === undefined || ib === undefined || ic === undefined) {
+      continue
+    }
+
+    const a = points2d[ia]
+    const b = points2d[ib]
+    const c = points2d[ic]
+    if (!a || !b || !c) {
+      continue
+    }
+
+    if (triangleArea2d(a, b, c) < TRIANGLE_AREA_EPSILON_M2) {
+      continue
+    }
+    filtered.push(ia, ib, ic)
+  }
+  return filtered
 }
 
 function sanitizeFootprintVertices(
@@ -91,7 +121,7 @@ export function generateRoofMesh(footprint: FootprintPolygon, vertexHeightsM: nu
   const { vertices, points2d } = sanitizeFootprintVertices(footprint, vertexHeightsM)
 
   const flatCoords = points2d.flatMap((point) => [point.x, point.y])
-  const indices = earcut(flatCoords)
+  const indices = filterDegenerateTriangles(points2d, earcut(flatCoords))
   if (indices.length === 0 || indices.length % 3 !== 0) {
     console.warn(
       `[generateRoofMesh] Unexpected earcut result for footprint ${footprint.id}: vertexCount=${vertices.length}, indexCount=${indices.length}`,

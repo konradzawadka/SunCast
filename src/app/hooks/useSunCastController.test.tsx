@@ -4,12 +4,14 @@ import { act } from 'react'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 import { createRoot } from 'react-dom/client'
 import { useEffect, useRef } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProjectState } from '../../state/project-store/projectState.types'
 import type { FaceConstraints } from '../../types/geometry'
 
 const mockUseProjectStore = vi.fn()
 const mockUseSolvedRoofEntries = vi.fn()
+const mockUseRoofShading = vi.fn()
+const mockUseAnnualRoofSimulation = vi.fn()
 
 vi.mock('../../state/project-store', () => ({
   useProjectStore: () => mockUseProjectStore(),
@@ -59,6 +61,12 @@ vi.mock('../features/sun-tools/useSunProjectionPanel', () => ({
 
 vi.mock('./useKeyboardShortcuts', () => ({ useKeyboardShortcuts: vi.fn() }))
 vi.mock('../features/debug/useRoofDebugSimulation', () => ({ useRoofDebugSimulation: vi.fn() }))
+vi.mock('./useRoofShading', () => ({
+  useRoofShading: (...args: unknown[]) => mockUseRoofShading(...args),
+}))
+vi.mock('./useAnnualRoofSimulation', () => ({
+  useAnnualRoofSimulation: (...args: unknown[]) => mockUseAnnualRoofSimulation(...args),
+}))
 
 import { useSunCastController } from './useSunCastController'
 
@@ -133,15 +141,47 @@ function makeState(): ProjectState {
     selectedFootprintIds: ['a', 'b'],
     drawDraft: [],
     isDrawing: false,
+    obstacles: {},
+    activeObstacleId: null,
+    selectedObstacleIds: [],
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: {
       enabled: true,
       datetimeIso: '2026-03-07T10:00',
       dailyDateIso: '2026-03-07',
     },
+    shadingSettings: {
+      enabled: true,
+      gridResolutionM: 0.5,
+    },
   }
 }
 
 describe('useSunCastController', () => {
+  beforeEach(() => {
+    mockUseRoofShading.mockReset()
+    mockUseAnnualRoofSimulation.mockReset()
+    mockUseRoofShading.mockReturnValue({
+      heatmapFeatures: [],
+      computeState: 'IDLE',
+      computeMode: 'final',
+      resultStatus: null,
+      statusMessage: null,
+      diagnostics: null,
+      usedGridResolutionM: null,
+    })
+    mockUseAnnualRoofSimulation.mockReturnValue({
+      state: 'IDLE',
+      progress: { ratio: 0, sampledDays: 0, totalSampledDays: 0 },
+      result: null,
+      heatmapFeatures: [],
+      error: null,
+      runSimulation: vi.fn(async () => undefined),
+      clearSimulation: vi.fn(),
+    })
+  })
+
   it('builds selected roof inputs only from solved selected footprints', () => {
     const state = makeState()
 
@@ -150,18 +190,30 @@ describe('useSunCastController', () => {
       activeFootprint: state.footprints.a.footprint,
       activeConstraints: { vertexHeights: [] } satisfies FaceConstraints,
       selectedFootprintIds: state.selectedFootprintIds,
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacles: [],
       sunProjection: state.sunProjection,
       startDrawing: vi.fn(),
       cancelDrawing: vi.fn(),
       addDraftPoint: vi.fn(),
       undoDraftPoint: vi.fn(),
       commitFootprint: vi.fn(),
+      startObstacleDrawing: vi.fn(),
+      cancelObstacleDrawing: vi.fn(),
+      addObstacleDraftPoint: vi.fn(),
+      undoObstacleDraftPoint: vi.fn(),
+      commitObstacle: vi.fn(),
       deleteFootprint: vi.fn(),
+      deleteObstacle: vi.fn(),
       moveVertex: vi.fn(),
       moveEdge: vi.fn(),
+      moveObstacleVertex: vi.fn(() => true),
       setVertexHeight: vi.fn(),
       setVertexHeights: vi.fn(),
       setEdgeHeight: vi.fn(),
+      setObstacleHeight: vi.fn(() => true),
+      setObstacleKind: vi.fn(() => true),
       clearVertexHeight: vi.fn(),
       clearEdgeHeight: vi.fn(),
       setSunProjectionEnabled: vi.fn(),
@@ -173,7 +225,11 @@ describe('useSunCastController', () => {
       toggleFootprintSelection: vi.fn(),
       selectAllFootprints: vi.fn(),
       clearFootprintSelection: vi.fn(),
+      selectOnlyObstacle: vi.fn(),
+      toggleObstacleSelection: vi.fn(),
+      clearObstacleSelection: vi.fn(),
       upsertImportedFootprints: vi.fn(),
+      startupHydrationError: null,
     })
 
     mockUseSolvedRoofEntries.mockReturnValue({
@@ -210,18 +266,30 @@ describe('useSunCastController', () => {
       activeFootprint: state.footprints.a.footprint,
       activeConstraints: { vertexHeights: [] } satisfies FaceConstraints,
       selectedFootprintIds: state.selectedFootprintIds,
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacles: [],
       sunProjection: state.sunProjection,
       startDrawing: vi.fn(),
       cancelDrawing: vi.fn(),
       addDraftPoint: vi.fn(),
       undoDraftPoint: vi.fn(),
       commitFootprint: vi.fn(),
+      startObstacleDrawing: vi.fn(),
+      cancelObstacleDrawing: vi.fn(),
+      addObstacleDraftPoint: vi.fn(),
+      undoObstacleDraftPoint: vi.fn(),
+      commitObstacle: vi.fn(),
       deleteFootprint: vi.fn(),
+      deleteObstacle: vi.fn(),
       moveVertex: vi.fn(),
       moveEdge: vi.fn(),
+      moveObstacleVertex: vi.fn(() => true),
       setVertexHeight: vi.fn(),
       setVertexHeights: vi.fn(),
       setEdgeHeight: vi.fn(),
+      setObstacleHeight: vi.fn(() => true),
+      setObstacleKind: vi.fn(() => true),
       clearVertexHeight: vi.fn(),
       clearEdgeHeight: vi.fn(),
       setSunProjectionEnabled: vi.fn(),
@@ -233,19 +301,46 @@ describe('useSunCastController', () => {
       toggleFootprintSelection: vi.fn(),
       selectAllFootprints: vi.fn(),
       clearFootprintSelection: vi.fn(),
+      selectOnlyObstacle: vi.fn(),
+      toggleObstacleSelection: vi.fn(),
+      clearObstacleSelection: vi.fn(),
       upsertImportedFootprints: vi.fn(),
+      startupHydrationError: null,
     })
 
     mockUseSolvedRoofEntries.mockReturnValue({ entries: [], activeSolved: null, activeError: null })
 
     const hook = renderController()
     expect(hook.get().canvasModel.productionComputationEnabled).toBe(true)
+    expect(mockUseRoofShading).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enabled: true,
+        interactionActive: false,
+      }),
+    )
 
     act(() => {
       hook.get().canvasModel.onGeometryDragStateChange(true)
     })
 
     expect(hook.get().canvasModel.productionComputationEnabled).toBe(false)
+    expect(mockUseRoofShading).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enabled: false,
+        interactionActive: true,
+      }),
+    )
+
+    act(() => {
+      hook.get().canvasModel.onGeometryDragStateChange(false)
+    })
+
+    expect(mockUseRoofShading).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        enabled: true,
+        interactionActive: false,
+      }),
+    )
     hook.unmount()
   })
 })

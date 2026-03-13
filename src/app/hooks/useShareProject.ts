@@ -8,6 +8,8 @@ const MAX_SHARE_URL_LENGTH = 3500
 interface UseShareProjectArgs {
   footprints: ProjectState['footprints']
   activeFootprintId: ProjectState['activeFootprintId']
+  obstacles: ProjectState['obstacles']
+  activeObstacleId: ProjectState['activeObstacleId']
   sunProjection: ProjectState['sunProjection']
 }
 
@@ -18,7 +20,13 @@ interface UseShareProjectResult {
   resetShareStatus: () => void
 }
 
-export function useShareProject({ footprints, activeFootprintId, sunProjection }: UseShareProjectArgs): UseShareProjectResult {
+export function useShareProject({
+  footprints,
+  activeFootprintId,
+  obstacles,
+  activeObstacleId,
+  sunProjection,
+}: UseShareProjectArgs): UseShareProjectResult {
   const [shareError, setShareError] = useState<string | null>(null)
   const [shareSuccess, setShareSuccess] = useState<string | null>(null)
 
@@ -40,6 +48,8 @@ export function useShareProject({ footprints, activeFootprintId, sunProjection }
       const payload = buildSharePayload({
         footprints,
         activeFootprintId,
+        obstacles,
+        activeObstacleId,
         sunProjection,
       })
       const encoded = await encodeSharePayload(serializeSharePayload(payload))
@@ -74,7 +84,7 @@ export function useShareProject({ footprints, activeFootprintId, sunProjection }
     } catch {
       setShareError('Could not generate share URL.')
     }
-  }, [activeFootprintId, footprints, sunProjection])
+  }, [activeFootprintId, activeObstacleId, footprints, obstacles, sunProjection])
 
   return {
     shareError,

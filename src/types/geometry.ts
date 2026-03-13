@@ -55,14 +55,37 @@ export interface SolvedRoofPlane {
 export interface ProjectData {
   footprints: Record<string, StoredFootprint>
   activeFootprintId: string | null
+  obstacles?: Record<string, ObstacleStateEntry>
+  activeObstacleId?: string | null
   solverConfigVersion?: string
   sunProjection?: ProjectSunProjectionSettings
+  shadingSettings?: ShadingSettings
 }
 
 export interface ProjectSunProjectionSettings {
   enabled: boolean
   datetimeIso: string | null
   dailyDateIso: string | null
+}
+
+export type ObstacleKind = 'building' | 'tree' | 'pole' | 'custom'
+
+export type ObstacleShape =
+  | { type: 'polygon-prism'; polygon: LngLat[] }
+  | { type: 'cylinder'; center: LngLat; radiusM: number }
+  | { type: 'tree'; center: LngLat; crownRadiusM: number; trunkRadiusM: number }
+
+export interface ObstacleStateEntry {
+  id: string
+  kind: ObstacleKind
+  shape: ObstacleShape
+  heightAboveGroundM: number
+  label?: string
+}
+
+export interface ShadingSettings {
+  enabled: boolean
+  gridResolutionM: number
 }
 
 export interface StoredFootprint {
@@ -74,9 +97,27 @@ export interface StoredFootprint {
 }
 
 export interface RoofMeshData {
+  id?: string
   vertices: Array<{ lon: number; lat: number; z: number }>
   triangleIndices: number[]
 }
+
+export type ObstacleMeshData = RoofMeshData
+
+export interface RoofHeatmapFeature {
+  type: 'Feature'
+  properties: {
+    roofId: string
+    shade: 0 | 1
+    intensity: number
+  }
+  geometry: {
+    type: 'Polygon'
+    coordinates: number[][][]
+  }
+}
+
+export type RoofShadeHeatmapFeature = RoofHeatmapFeature
 
 export interface RoofMetrics {
   pitchDeg: number

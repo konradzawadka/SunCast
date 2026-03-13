@@ -1,18 +1,26 @@
 import type maplibregl from 'maplibre-gl'
 import {
-  CLICK_HIT_TOLERANCE_PX,
-  DRAG_HIT_TOLERANCE_PX,
   DRAW_CLOSE_SNAP_TOLERANCE_PX,
-  EDGE_HIT_LAYER_ID,
-  FOOTPRINT_HIT_LAYER_ID,
   MAX_ORBIT_PITCH_DEG,
   ORBIT_STEER_BEARING_PER_PIXEL_DEG,
   ORBIT_STEER_PITCH_PER_PIXEL_DEG,
-  VERTEX_HIT_LAYER_ID,
 } from './mapViewConstants'
-import { angleFromSouthDeg, pointAtDistanceMeters, segmentAzimuthDeg, segmentLengthMeters, snapDrawPointToRightAngle } from './drawingAssist'
+import {
+  angleFromSouthDeg,
+  pointAtDistanceMeters,
+  segmentAzimuthDeg,
+  segmentLengthMeters,
+  snapDrawPointToRightAngle,
+  snapVertexPointToRightAngle,
+} from './drawingAssist'
 import { edgeLengthMeters } from './mapViewGeoJson'
-import { getEdgeHit, getFootprintHit, getHitFeatures, getVertexHit } from './mapViewHitTesting'
+import {
+  applyVertexDragMove,
+  handleModeSelectionClick,
+  resolveHoverState,
+  resolveMouseDownDragState,
+  resolveVertexDragPolygon,
+} from './mapInteractionEditMode'
 import type { MutableRefObject } from 'react'
 import type {
   DragState,
@@ -20,6 +28,7 @@ import type {
   HoveredEdgeLength,
   MapInteractionRefs,
   OrbitSteerState,
+  VertexDragAngleHint,
 } from './mapInteractionTypes'
 
 interface CreateMapInteractionHandlersArgs {
@@ -31,9 +40,39 @@ interface CreateMapInteractionHandlersArgs {
   orbitSteerStateRef: MutableRefObject<OrbitSteerState | null>
   setHoveredEdgeLength: (value: HoveredEdgeLength | null) => void
   setDrawingAngleHint: (value: DrawingAngleHint | null) => void
+  setVertexDragAngleHint: (value: VertexDragAngleHint | null) => void
   setDraftPreviewPoint: (value: [number, number] | null) => void
 }
 
+interface DrawingInteraction {
+  snapped: ReturnType<typeof snapDrawPointToRightAngle>
+  closePolygonPoint: [number, number] | null
+  previewPoint: [number, number]
+  lengthM: number
+  secondPointPreview: boolean
+  azimuthDeg: number | null
+}
+
+// Purpose: Returns event lng lat from available inputs.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+function getEventLngLat(event: maplibregl.MapMouseEvent): [number, number] {
+  return [event.lngLat.lng, event.lngLat.lat]
+}
+
+// Purpose: Checks whether snap disabled and returns a boolean result.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+function isSnapDisabled(event: maplibregl.MapMouseEvent): boolean {
+  return event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
+}
+
+// Purpose: Checks whether multi select and returns a boolean result.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+function isMultiSelect(event: maplibregl.MapMouseEvent & { originalEvent: MouseEvent }): boolean {
+  return event.originalEvent.ctrlKey || event.originalEvent.metaKey
+}
+
+// Purpose: Returns close polygon snap point from available inputs.
+// Why: Improves readability by isolating a single responsibility behind a named function.
 function getClosePolygonSnapPoint(
   map: maplibregl.Map,
   drawDraft: Array<[number, number]>,
@@ -69,6 +108,121 @@ function getDrawPoint(
   }
 }
 
+// Purpose: Returns vertex drag point from available inputs.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+function getVertexDragPoint(
+  polygon: Array<[number, number]> | null,
+  vertexIndex: number,
+  rawPoint: [number, number],
+  disableSnap: boolean,
+) {
+  if (!polygon) {
+    return { point: rawPoint, angleDeg: null }
+  }
+  return snapVertexPointToRightAngle(polygon, vertexIndex, rawPoint, { snapEnabled: !disableSnap })
+}
+
+// Purpose: Computes compute drawing interaction deterministically from the provided input values.
+// Why: Keeps domain rules explicit, testable, and deterministic.
+function computeDrawingInteraction(
+  map: maplibregl.Map,
+  drawDraft: Array<[number, number]>,
+  rawPoint: [number, number],
+  disableSnap: boolean,
+  constrainedDrawLengthM: number | null,
+): DrawingInteraction | null {
+  if (drawDraft.length < 1) {
+    return null
+  }
+
+  const snapped = getDrawPoint(drawDraft, rawPoint, disableSnap, constrainedDrawLengthM)
+  const closePolygonPoint = disableSnap ? null : getClosePolygonSnapPoint(map, drawDraft, snapped.point)
+  const previewPoint = closePolygonPoint ?? snapped.point
+
+  return {
+    snapped,
+    closePolygonPoint,
+    previewPoint,
+    lengthM: segmentLengthMeters(drawDraft[drawDraft.length - 1], previewPoint),
+    secondPointPreview: drawDraft.length === 1,
+    azimuthDeg: drawDraft.length === 1 ? segmentAzimuthDeg(drawDraft[0], previewPoint) : null,
+  }
+}
+
+// Purpose: Updates vertex angle hint in a controlled way.
+// Why: Makes state transitions explicit and easier to reason about during edits.
+function setVertexAngleHint(
+  setVertexDragAngleHint: (value: VertexDragAngleHint | null) => void,
+  event: maplibregl.MapMouseEvent,
+  angleDeg: number | null,
+): void {
+  if (angleDeg === null) {
+    setVertexDragAngleHint(null)
+    return
+  }
+
+  setVertexDragAngleHint({
+    left: event.point.x,
+    top: event.point.y,
+    angleDeg,
+  })
+}
+
+// Purpose: Encapsulates start drag behavior in one reusable function.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+function startDrag(
+  map: maplibregl.Map,
+  refs: MapInteractionRefs,
+  dragStateRef: MutableRefObject<DragState | null>,
+  dragState: DragState,
+  setVertexDragAngleHint: (value: VertexDragAngleHint | null) => void,
+): void {
+  dragStateRef.current = dragState
+  refs.onGeometryDragStateChangeRef.current(true)
+  map.dragPan.disable()
+  map.getCanvas().style.cursor = 'grabbing'
+  setVertexDragAngleHint(null)
+}
+
+// Purpose: Updates hover cursor in a controlled way.
+// Why: Makes state transitions explicit and easier to reason about during edits.
+function setHoverCursor(map: maplibregl.Map, hasVertexHit: boolean, hasEdgeHit: boolean): void {
+  if (hasVertexHit) {
+    map.getCanvas().style.cursor = 'grab'
+  } else if (hasEdgeHit) {
+    map.getCanvas().style.cursor = 'move'
+  } else {
+    map.getCanvas().style.cursor = ''
+  }
+}
+
+// Purpose: Updates hovered edge length for polygon in a controlled way.
+// Why: Makes state transitions explicit and easier to reason about during edits.
+function setHoveredEdgeLengthForPolygon(
+  map: maplibregl.Map,
+  polygon: Array<[number, number]> | null,
+  edgeIndex: number | null,
+  setHoveredEdgeLength: (value: HoveredEdgeLength | null) => void,
+): void {
+  if (edgeIndex === null || !polygon || polygon.length < 2) {
+    setHoveredEdgeLength(null)
+    return
+  }
+
+  const lengthM = edgeLengthMeters(polygon, edgeIndex)
+  if (lengthM === null) {
+    setHoveredEdgeLength(null)
+    return
+  }
+
+  const start = polygon[edgeIndex]
+  const end = polygon[(edgeIndex + 1) % polygon.length]
+  const midLon = (start[0] + end[0]) / 2
+  const midLat = (start[1] + end[1]) / 2
+  const midScreen = map.project({ lng: midLon, lat: midLat })
+  setHoveredEdgeLength({ left: midScreen.x, top: midScreen.y, lengthM })
+}
+
 export function createMapInteractionHandlers({
   map,
   refs,
@@ -78,29 +232,31 @@ export function createMapInteractionHandlers({
   orbitSteerStateRef,
   setHoveredEdgeLength,
   setDrawingAngleHint,
+  setVertexDragAngleHint,
   setDraftPreviewPoint,
 }: CreateMapInteractionHandlersArgs) {
   const handleHoverMove = (event: maplibregl.MapMouseEvent) => {
     if (refs.drawingRef.current && !refs.orbitEnabledRef.current) {
       const drawDraft = refs.drawDraftRef.current
-      if (drawDraft.length >= 1) {
-        const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
-        const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap, constrainedDrawLengthM)
-        const closePolygonPoint = disableSnap ? null : getClosePolygonSnapPoint(map, drawDraft, snapped.point)
-        const previewPoint = closePolygonPoint ?? snapped.point
-        const lengthM = segmentLengthMeters(drawDraft[drawDraft.length - 1], previewPoint)
-        const secondPointPreview = drawDraft.length === 1
-        const azimuthDeg = secondPointPreview ? segmentAzimuthDeg(drawDraft[0], previewPoint) : null
-        setDraftPreviewPoint(previewPoint)
+      const drawInteraction = computeDrawingInteraction(
+        map,
+        drawDraft,
+        getEventLngLat(event),
+        isSnapDisabled(event),
+        constrainedDrawLengthM,
+      )
+      if (drawInteraction) {
+        setDraftPreviewPoint(drawInteraction.previewPoint)
         setDrawingAngleHint({
           left: event.point.x,
           top: event.point.y,
-          angleDeg: drawDraft.length >= 2 ? snapped.angleDeg : null,
-          azimuthDeg,
-          angleFromSouthDeg: azimuthDeg !== null ? angleFromSouthDeg(azimuthDeg) : null,
-          secondPointPreview,
-          lengthM,
-          snapped: snapped.snapped || closePolygonPoint !== null,
+          angleDeg: drawDraft.length >= 2 ? drawInteraction.snapped.angleDeg : null,
+          azimuthDeg: drawInteraction.azimuthDeg,
+          angleFromSouthDeg:
+            drawInteraction.azimuthDeg !== null ? angleFromSouthDeg(drawInteraction.azimuthDeg) : null,
+          secondPointPreview: drawInteraction.secondPointPreview,
+          lengthM: drawInteraction.lengthM,
+          snapped: drawInteraction.snapped.snapped || drawInteraction.closePolygonPoint !== null,
         })
       } else {
         setDraftPreviewPoint(null)
@@ -118,37 +274,9 @@ export function createMapInteractionHandlers({
       return
     }
 
-    const active = refs.activeFootprintRef.current
-    const hits = getHitFeatures(map, event.point, DRAG_HIT_TOLERANCE_PX, [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID])
-    const vertexIndex = getVertexHit(hits, VERTEX_HIT_LAYER_ID)
-    const edgeIndex = getEdgeHit(hits, EDGE_HIT_LAYER_ID)
-    const canModifyEdge = edgeIndex !== null && !!active && active.vertices.length >= 3
-
-    if (canModifyEdge) {
-      map.getCanvas().style.cursor = 'ew-resize'
-    } else if (vertexIndex !== null) {
-      map.getCanvas().style.cursor = 'grab'
-    } else {
-      map.getCanvas().style.cursor = ''
-    }
-
-    if (edgeIndex === null || !active || active.vertices.length < 2) {
-      setHoveredEdgeLength(null)
-      return
-    }
-
-    const lengthM = edgeLengthMeters(active.vertices, edgeIndex)
-    if (lengthM === null) {
-      setHoveredEdgeLength(null)
-      return
-    }
-
-    const start = active.vertices[edgeIndex]
-    const end = active.vertices[(edgeIndex + 1) % active.vertices.length]
-    const midLon = (start[0] + end[0]) / 2
-    const midLat = (start[1] + end[1]) / 2
-    const midScreen = map.project({ lng: midLon, lat: midLat })
-    setHoveredEdgeLength({ left: midScreen.x, top: midScreen.y, lengthM })
+    const hoverState = resolveHoverState(map, refs, event.point)
+    setHoverCursor(map, hoverState.cursor === 'grab', hoverState.cursor === 'move')
+    setHoveredEdgeLengthForPolygon(map, hoverState.polygon, hoverState.edgeIndex, setHoveredEdgeLength)
   }
 
   const handleDragMove = (event: maplibregl.MapMouseEvent) => {
@@ -158,11 +286,16 @@ export function createMapInteractionHandlers({
     }
 
     if (dragState.type === 'vertex') {
-      const applied = refs.onMoveVertexRef.current(dragState.index, [event.lngLat.lng, event.lngLat.lat])
+      const rawPoint = getEventLngLat(event)
+      const disableSnap = isSnapDisabled(event)
+      const moved = getVertexDragPoint(resolveVertexDragPolygon(refs, dragState), dragState.index, rawPoint, disableSnap)
+      const movedPoint = moved.point
+      const applied = applyVertexDragMove(refs, dragState, movedPoint)
       if (!applied) {
         dragState.invalidAttempted = true
       } else {
-        dragState.lastLngLat = [event.lngLat.lng, event.lngLat.lat]
+        setVertexAngleHint(setVertexDragAngleHint, event, moved.angleDeg)
+        dragState.lastLngLat = movedPoint
       }
       return
     }
@@ -192,6 +325,7 @@ export function createMapInteractionHandlers({
     map.dragPan.enable()
     map.getCanvas().style.cursor = ''
     setHoveredEdgeLength(null)
+    setVertexDragAngleHint(null)
     if (dragState.invalidAttempted) {
       refs.onMoveRejectedRef.current()
     }
@@ -215,42 +349,22 @@ export function createMapInteractionHandlers({
   const handleClick = (event: maplibregl.MapMouseEvent & { originalEvent: MouseEvent }) => {
     if (refs.drawingRef.current) {
       const drawDraft = refs.drawDraftRef.current
-      const disableSnap = event.originalEvent instanceof MouseEvent && event.originalEvent.shiftKey
-      const snapped = getDrawPoint(drawDraft, [event.lngLat.lng, event.lngLat.lat], disableSnap, constrainedDrawLengthM)
-      const closePolygonPoint = disableSnap ? null : getClosePolygonSnapPoint(map, drawDraft, snapped.point)
-      if (closePolygonPoint !== null) {
+      const drawInteraction = computeDrawingInteraction(
+        map,
+        drawDraft,
+        getEventLngLat(event),
+        isSnapDisabled(event),
+        constrainedDrawLengthM,
+      )
+      if (drawInteraction?.closePolygonPoint !== null) {
         refs.onCloseDrawingRef.current()
-      } else {
-        refs.onMapClickRef.current(snapped.point)
+        return
       }
+      refs.onMapClickRef.current(drawInteraction?.snapped.point ?? getEventLngLat(event))
       return
     }
 
-    const hits = getHitFeatures(map, event.point, CLICK_HIT_TOLERANCE_PX, [
-      VERTEX_HIT_LAYER_ID,
-      EDGE_HIT_LAYER_ID,
-      FOOTPRINT_HIT_LAYER_ID,
-    ])
-
-    const vertexIndex = getVertexHit(hits, VERTEX_HIT_LAYER_ID)
-    if (vertexIndex !== null) {
-      refs.onSelectVertexRef.current(vertexIndex)
-      return
-    }
-
-    const edgeIndex = getEdgeHit(hits, EDGE_HIT_LAYER_ID)
-    if (edgeIndex !== null) {
-      refs.onSelectEdgeRef.current(edgeIndex)
-      return
-    }
-
-    const footprintId = getFootprintHit(hits, FOOTPRINT_HIT_LAYER_ID)
-    if (footprintId) {
-      refs.onSelectFootprintRef.current(footprintId, event.originalEvent.ctrlKey || event.originalEvent.metaKey)
-      return
-    }
-
-    refs.onClearSelectionRef.current()
+    handleModeSelectionClick(map, refs, event.point, isMultiSelect(event))
   }
 
   const handleMouseDown = (event: maplibregl.MapMouseEvent) => {
@@ -261,6 +375,7 @@ export function createMapInteractionHandlers({
       }
       map.dragPan.disable()
       map.getCanvas().style.cursor = 'grabbing'
+      setVertexDragAngleHint(null)
       event.originalEvent.preventDefault()
       return
     }
@@ -269,36 +384,23 @@ export function createMapInteractionHandlers({
       return
     }
 
-    const hits = getHitFeatures(map, event.point, DRAG_HIT_TOLERANCE_PX, [VERTEX_HIT_LAYER_ID, EDGE_HIT_LAYER_ID])
-
-    const vertexIndex = getVertexHit(hits, VERTEX_HIT_LAYER_ID)
-    if (vertexIndex !== null) {
-      dragStateRef.current = {
-        type: 'vertex',
-        index: vertexIndex,
-        lastLngLat: [event.lngLat.lng, event.lngLat.lat],
-        invalidAttempted: false,
-      }
-      refs.onGeometryDragStateChangeRef.current(true)
-      map.dragPan.disable()
-      map.getCanvas().style.cursor = 'grabbing'
+    const dragState = resolveMouseDownDragState(map, refs, event.point, getEventLngLat(event))
+    if (!dragState) {
       return
     }
-
-    const edgeIndex = getEdgeHit(hits, EDGE_HIT_LAYER_ID)
-    if (edgeIndex === null) {
+    startDrag(
+      map,
+      refs,
+      dragStateRef,
+      dragState,
+      setVertexDragAngleHint,
+    )
+    if (dragState.type === 'edge') {
       return
     }
-
-    dragStateRef.current = {
-      type: 'edge',
-      index: edgeIndex,
-      lastLngLat: [event.lngLat.lng, event.lngLat.lat],
-      invalidAttempted: false,
-    }
-    refs.onGeometryDragStateChangeRef.current(true)
-    map.dragPan.disable()
-    map.getCanvas().style.cursor = 'grabbing'
+    const movedPoint = getEventLngLat(event)
+    const angleDeg = getVertexDragPoint(resolveVertexDragPolygon(refs, dragState), dragState.index, movedPoint, false).angleDeg
+    setVertexAngleHint(setVertexDragAngleHint, event, angleDeg)
   }
 
   const handleOrbitSteerMove = (event: maplibregl.MapMouseEvent) => {

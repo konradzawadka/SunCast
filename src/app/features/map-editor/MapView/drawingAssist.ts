@@ -27,6 +27,12 @@ export interface RightAngleSnapResult {
   angleDeg: number
 }
 
+export interface VertexRightAngleSnapResult {
+  point: [number, number]
+  snapped: boolean
+  angleDeg: number | null
+}
+
 export function segmentLengthMeters(start: [number, number], end: [number, number]): number {
   const { points2d } = projectPointsToLocalMeters([start, end])
   const dx = points2d[1].x - points2d[0].x
@@ -111,4 +117,75 @@ export function snapDrawPointToRightAngle(
   }
   const snappedPoint = localMetersToLonLat(origin, snappedLocal)
   return { point: snappedPoint, snapped: true, angleDeg: 90 }
+}
+
+// Purpose: Encapsulates snap vertex point to right angle behavior in one reusable function.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+export function snapVertexPointToRightAngle(
+  vertices: Array<[number, number]>,
+  vertexIndex: number,
+  rawPoint: [number, number],
+  options?: { snapEnabled?: boolean },
+): VertexRightAngleSnapResult {
+  if (vertices.length < 3 || vertexIndex < 0 || vertexIndex >= vertices.length) {
+    return { point: rawPoint, snapped: false, angleDeg: null }
+  }
+
+  const previous = vertices[(vertexIndex - 1 + vertices.length) % vertices.length]
+  const next = vertices[(vertexIndex + 1) % vertices.length]
+  const { origin, points2d } = projectPointsToLocalMeters([previous, next, rawPoint])
+  const previousPoint = points2d[0]
+  const nextPoint = points2d[1]
+  const cursorPoint = points2d[2]
+
+  const previousVector = {
+    x: previousPoint.x - cursorPoint.x,
+    y: previousPoint.y - cursorPoint.y,
+  }
+  const nextVector = {
+    x: nextPoint.x - cursorPoint.x,
+    y: nextPoint.y - cursorPoint.y,
+  }
+  const angleDeg = angleBetweenDeg(previousVector, nextVector)
+  if (options?.snapEnabled === false) {
+    return { point: rawPoint, snapped: false, angleDeg }
+  }
+  const distanceToRightAngle = Math.abs(angleDeg - 90)
+  if (distanceToRightAngle > RIGHT_ANGLE_SNAP_THRESHOLD_DEG) {
+    return { point: rawPoint, snapped: false, angleDeg }
+  }
+
+  const chordDx = nextPoint.x - previousPoint.x
+  const chordDy = nextPoint.y - previousPoint.y
+  const chordLength = Math.hypot(chordDx, chordDy)
+  if (chordLength === 0) {
+    return { point: rawPoint, snapped: false, angleDeg }
+  }
+
+  const center = {
+    x: (previousPoint.x + nextPoint.x) / 2,
+    y: (previousPoint.y + nextPoint.y) / 2,
+  }
+  const radius = chordLength / 2
+  const centerToCursor = {
+    x: cursorPoint.x - center.x,
+    y: cursorPoint.y - center.y,
+  }
+  const centerToCursorLength = Math.hypot(centerToCursor.x, centerToCursor.y)
+  const snappedLocal =
+    centerToCursorLength === 0
+      ? {
+          x: center.x + (-chordDy / chordLength) * radius,
+          y: center.y + (chordDx / chordLength) * radius,
+        }
+      : {
+          x: center.x + (centerToCursor.x / centerToCursorLength) * radius,
+          y: center.y + (centerToCursor.y / centerToCursorLength) * radius,
+        }
+
+  return {
+    point: localMetersToLonLat(origin, snappedLocal),
+    snapped: true,
+    angleDeg: 90,
+  }
 }

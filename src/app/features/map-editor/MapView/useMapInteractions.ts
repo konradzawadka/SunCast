@@ -5,6 +5,7 @@ import type {
   DrawingAngleHint,
   HoveredEdgeLength,
   OrbitSteerState,
+  VertexDragAngleHint,
   UseMapInteractionsArgs,
   UseMapInteractionsResult,
 } from './mapInteractionTypes'
@@ -13,6 +14,7 @@ export type {
   DrawingAngleHint,
   HoveredEdgeLength,
   MapInteractionRefs,
+  VertexDragAngleHint,
   UseMapInteractionsArgs,
   UseMapInteractionsResult,
 } from './mapInteractionTypes'
@@ -25,6 +27,7 @@ export function useMapInteractions({
 }: UseMapInteractionsArgs): UseMapInteractionsResult {
   const [hoveredEdgeLength, setHoveredEdgeLength] = useState<HoveredEdgeLength | null>(null)
   const [drawingAngleHint, setDrawingAngleHint] = useState<DrawingAngleHint | null>(null)
+  const [vertexDragAngleHint, setVertexDragAngleHint] = useState<VertexDragAngleHint | null>(null)
   const [draftPreviewPoint, setDraftPreviewPoint] = useState<[number, number] | null>(null)
   const hoveredEdgeLengthRef = useRef<HoveredEdgeLength | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
@@ -53,6 +56,7 @@ export function useMapInteractions({
       orbitSteerStateRef,
       setHoveredEdgeLength,
       setDrawingAngleHint,
+      setVertexDragAngleHint,
       setDraftPreviewPoint,
     })
 
@@ -77,6 +81,7 @@ export function useMapInteractions({
       map.off('pitch', handlers.emitPitch)
       setHoveredEdgeLength(null)
       setDrawingAngleHint(null)
+      setVertexDragAngleHint(null)
       setDraftPreviewPoint(null)
       refs.onGeometryDragStateChangeRef.current(false)
     }
@@ -85,6 +90,7 @@ export function useMapInteractions({
   return {
     hoveredEdgeLength,
     drawingAngleHint,
+    vertexDragAngleHint,
     draftPreviewPoint,
   }
 }

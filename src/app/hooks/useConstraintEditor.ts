@@ -16,6 +16,8 @@ interface UseConstraintEditorParams {
   moveEdge: (edgeIndex: number, delta: LngLat) => void
 }
 
+const SEGMENT_LENGTH_EPSILON_M = 0.005
+
 function squaredDistancePointToSegment(
   point: { x: number; y: number },
   segmentStart: { x: number; y: number },
@@ -26,7 +28,7 @@ function squaredDistancePointToSegment(
   const wx = point.x - segmentStart.x
   const wy = point.y - segmentStart.y
   const vv = vx * vx + vy * vy
-  if (vv <= Number.EPSILON) {
+  if (vv <= SEGMENT_LENGTH_EPSILON_M * SEGMENT_LENGTH_EPSILON_M) {
     const dx = point.x - segmentStart.x
     const dy = point.y - segmentStart.y
     return dx * dx + dy * dy

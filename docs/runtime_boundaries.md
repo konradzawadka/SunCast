@@ -1,75 +1,99 @@
 # Runtime Boundaries
 
-This document defines Stage 1 runtime boundaries and references current code paths.
+This document defines current runtime boundaries and allowed responsibilities by module group.
 
 ## Geometry Domain (`src/geometry/*`)
 
-Source of truth:
-- footprint polygon
-- height constraints
+Canonical inputs:
+- footprint polygons
+- roof constraints (vertex/edge heights)
+- obstacle inputs (kind/shape/height)
+- shading/simulation parameters
 
 Responsibilities:
 - coordinate projection (`lon/lat -> local meters`)
-- footprint validation
-- plane solving and metrics
-- mesh generation inputs
+- footprint/constraint validation
+- plane solving and roof metrics
+- roof/obstacle mesh input generation
+- shading scene preparation and shade/annual simulation math
 - sun/irradiance calculations
 
 Rules:
 - pure functions only
 - deterministic output for equal input
-- no UI/browser dependencies
+- no React/DOM/MapLibre/browser-storage dependencies
+- no persistence or side effects
 
 ## App State (`src/state/project-store/*`)
 
 Responsibilities:
-- reducer transitions and command-style state updates
-- active/selected footprint management
-- persistence load/save and sanitization
-- share payload mapping/import
+- reducer transitions and command-style updates
+- active/selected footprint and obstacle management
+- persistence load/save
+- payload sanitization/migration
+- share payload mapping/import/export
 
 Rules:
-- state is authoritative for geometry inputs
-- persisted data stores constraints and footprint data, not generated mesh
+- state is authoritative for canonical inputs
+- persisted data includes footprints/constraints/obstacles/sun+shading settings
+- persisted data must not store derived meshes, solved planes, or shading output grids
+- unknown future schema versions are rejected (fail-closed)
 
 ## App Orchestration (`src/app/hooks/*`)
 
 Responsibilities:
-- compose sidebar/canvas/tutorial view models
-- coordinate selection, constraints editing, keyboard shortcuts
-- trigger share and sun tools behavior
+- compose sidebar/canvas/tutorial/sun-tools view models
+- coordinate selection/editing flows
+- connect store state with geometry computations
+- schedule progressive shading and annual simulation runs
 
 Rules:
-- orchestration may call geometry/store modules
-- orchestration must not contain solver math
+- orchestration may call geometry/store/rendering adapters
+- orchestration must not implement solver/shading math directly
+- long-running work must preserve UI responsiveness (throttling, yielding, caching policies)
 
 ## Map Interaction (`src/app/features/map-editor/*`)
 
 Responsibilities:
-- MapLibre lifecycle
-- drawing/editing input capture
+- MapLibre lifecycle and source synchronization
+- drawing/editing input capture for roof + obstacle flows
 - hit-testing, drag interactions, orbit controls
-- map overlays and source updates
+- map overlay state wiring
 
 Rules:
-- map layer emits user intents/events
-- map layer does not implement geometry solver logic
+- interaction routing is target-based (`roof` / `obstacle`), not mode-gated solver duplication
+- map layer emits intents/events only
+- map interaction must not implement geometry solver logic
 
-## Forecast Integration (`src/app/features/sun-tools/*`)
+## Rendering (`src/rendering/*`)
 
 Responsibilities:
-- fetch weather forecast from Open-Meteo
-- convert weather + solved orientation into estimated PV output
+- consume solved/derived geometry and render it
+- transform mesh/shading outputs into GPU-friendly buffers
+- handle worker-assisted overlay preparation where applicable
+
+Rules:
+- rendering must not redefine business/solver rules
+- renderer instances should be shared per WebGL context when layering custom 3D layers
+- worker paths require safe synchronous fallback behavior
+
+## Sun Tools And Forecast (`src/app/features/sun-tools/*`)
+
+Responsibilities:
+- user-facing sun projection controls
+- annual sun-access simulation UI orchestration
+- weather forecast fetch and PV-estimate presentation
 
 Rules:
 - forecast output is advisory and non-authoritative for geometry
-- failures degrade to non-fatal status and clear-sky panels remain available
+- simulation outputs are derived (non-canonical) artifacts
+- external/API failures degrade to non-fatal status with local editing preserved
 
 ## Tutorial (`src/app/features/tutorial/*`)
 
 Responsibilities:
 - onboarding overlays and progression
-- track milestones from app state/events
+- milestone tracking from app state/events
 
 Rules:
 - tutorial reads app state
