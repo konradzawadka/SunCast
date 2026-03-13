@@ -183,7 +183,7 @@ class RoofHeatmapLayer implements maplibregl.CustomLayerInterface {
       )
       return
     }
-    this.worker = new Worker(new URL('./roof-layer/roofHeatmapOverlay.worker.ts', import.meta.url), {
+    this.worker = new Worker(new URL('../roof-layer/roofHeatmapOverlay.worker.ts', import.meta.url), {
       type: 'module',
     })
     this.worker.onmessage = (event: MessageEvent<RoofHeatmapOverlayWorkerResponse>) => {
