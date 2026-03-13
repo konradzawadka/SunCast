@@ -47,13 +47,13 @@ const GEOMETRY_REVISION_ACTION_TYPES = new Set<Action['type']>([
 
 export function useProjectStore() {
   const [state, dispatchRaw] = useReducer(projectStateReducer, initialProjectState)
+  const [stateRevision, bumpStateRevision] = useReducer((revision: number) => revision + 1, 0)
   const hasSkippedInitialPersist = useRef(false)
-  const stateRevisionRef = useRef(0)
 
   const dispatch = useCallback((action: Action) => {
     dispatchRaw(action)
     if (GEOMETRY_REVISION_ACTION_TYPES.has(action.type)) {
-      stateRevisionRef.current += 1
+      bumpStateRevision()
     }
   }, [dispatchRaw])
 
@@ -127,7 +127,7 @@ export function useProjectStore() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [dispatch])
 
   useEffect(() => {
     if (!hasSkippedInitialPersist.current) {
@@ -180,7 +180,7 @@ export function useProjectStore() {
 
     return {
       state,
-      stateRevision: stateRevisionRef.current,
+      stateRevision,
       projectDocument,
       editorSession,
       activeFootprint,
@@ -195,5 +195,5 @@ export function useProjectStore() {
       shadingSettings: state.shadingSettings,
       ...createProjectCommands(dispatch, () => state),
     }
-  }, [state])
+  }, [dispatch, state, stateRevision])
 }

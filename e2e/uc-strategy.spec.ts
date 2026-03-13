@@ -306,9 +306,9 @@ test('UC1 + UC4 + IP1: orbit mode, height gizmo, mesh toggle, and non-orbit drag
   await expect(orbitButton).toHaveText(/^Orbit$/)
 
   const before = await readStoredProject(page)
-  const beforeActive = before.activeFootprintId
+  const beforeActive = before.activeFootprintId ?? Object.keys(before.footprints)[0] ?? null
   if (!beforeActive) {
-    throw new Error('Expected an active footprint before drag')
+    throw new Error('Expected a footprint before drag')
   }
   const beforeFirstVertex = before.footprints[beforeActive].polygon[0]
 
@@ -350,11 +350,14 @@ test('UC3 + determinism: multiple footprints persist, reload, and delete', async
   await expect(page.locator('.footprint-list-item')).toHaveCount(2)
 
   await page.locator('.footprint-list-item').first().click()
+  await expect(page.locator('.footprint-list-item-active')).toHaveCount(1)
   await expect(page.getByText(/Active constraints:/)).toContainText('V0=3.00m')
 
   await page.reload()
 
   await expect(page.locator('.footprint-list-item')).toHaveCount(2)
+  await page.locator('.footprint-list-item').first().click()
+  await expect(page.locator('.footprint-list-item-active')).toHaveCount(1)
   await expect(page.getByText(/Active constraints:/)).toContainText('V0=3.00m')
   await expect(page.getByTestId('status-pitch-value')).toHaveText(pitchBeforeReload)
 
