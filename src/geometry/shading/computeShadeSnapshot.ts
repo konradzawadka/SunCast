@@ -1,6 +1,6 @@
 import { isPointShaded } from './shadeAtPoint'
 import { computeMaxShadowDistanceM, sunDirectionFromAzimuthElevation } from './shadowProjection'
-import { DEFAULT_LOW_SUN_THRESHOLD_DEG } from './constants'
+import { DEFAULT_LOW_SUN_THRESHOLD_DEG, DIRECT_SUN_FRONT_SIDE_EPSILON } from './constants'
 import type { ComputeShadeSnapshotInput, ComputeShadeSnapshotResult } from './types'
 
 // Purpose: Encapsulates empty diagnostics behavior in one reusable function.
@@ -13,6 +13,22 @@ function emptyDiagnostics() {
     sampleCount: 0,
     obstacleCandidatesChecked: 0,
   }
+}
+
+// Purpose: Encapsulates roof facing sun behavior in one reusable function.
+// Why: Keeps direct-sun semantics consistent for live shading and annual simulation.
+function isRoofFrontSideLit(plane: { p: number; q: number }, sunDirection: { x: number; y: number; z: number }): boolean {
+  const normalLength = Math.sqrt(plane.p * plane.p + plane.q * plane.q + 1)
+  if (!Number.isFinite(normalLength) || normalLength <= 1e-9) {
+    return false
+  }
+
+  const roofNormalX = -plane.p / normalLength
+  const roofNormalY = -plane.q / normalLength
+  const roofNormalZ = 1 / normalLength
+  const cosIncidence = roofNormalX * sunDirection.x + roofNormalY * sunDirection.y + roofNormalZ * sunDirection.z
+
+  return cosIncidence > DIRECT_SUN_FRONT_SIDE_EPSILON
 }
 
 // Purpose: Computes compute shade snapshot deterministically from the provided input values.
@@ -57,6 +73,18 @@ export function computeShadeSnapshot(input: ComputeShadeSnapshotInput): ComputeS
 
   const roofResults: ComputeShadeSnapshotResult['roofs'] = []
   for (const roof of input.scene.roofs) {
+    const roofIsFrontSideLit = isRoofFrontSideLit(roof.surface.plane, sunDirection)
+    if (!roofIsFrontSideLit) {
+      roofResults.push({
+        roofId: roof.roofId,
+        isSunFacing: false,
+        shadedCellCount: roof.samples.length,
+        litCellCount: 0,
+        shadeFactors: roof.samples.map(() => 1),
+      })
+      continue
+    }
+
     let shadedCellCount = 0
     let litCellCount = 0
 
@@ -82,6 +110,7 @@ export function computeShadeSnapshot(input: ComputeShadeSnapshotInput): ComputeS
 
     roofResults.push({
       roofId: roof.roofId,
+      isSunFacing: true,
       shadedCellCount,
       litCellCount,
       shadeFactors,

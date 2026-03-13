@@ -55,11 +55,13 @@ export function AnnualSunAccessPanel({
     }
 
     const sunHours = result.roofs.reduce((sum, roof) => sum + roof.sunHours, 0)
+    const frontSideHours = result.roofs.reduce((sum, roof) => sum + roof.frontSideHours, 0)
     const daylightHours = result.roofs.reduce((sum, roof) => sum + roof.daylightHours, 0)
-    const ratio = daylightHours > 0 ? sunHours / daylightHours : 0
+    const ratio = frontSideHours > 0 ? sunHours / frontSideHours : 0
 
     return {
       sunHours,
+      frontSideHours,
       daylightHours,
       ratio,
     }
@@ -229,6 +231,7 @@ export function AnnualSunAccessPanel({
       {summary && result && (
         <div data-testid="annual-sim-results">
           <p>Sun hours / year: {summary.sunHours.toFixed(1)} h</p>
+          <p>Sun-facing hours considered: {summary.frontSideHours.toFixed(1)} h</p>
           <p>Daylight hours considered: {summary.daylightHours.toFixed(1)} h</p>
           <p>Sun access ratio: {(summary.ratio * 100).toFixed(1)}%</p>
           <p>

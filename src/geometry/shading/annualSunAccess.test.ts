@@ -46,6 +46,34 @@ function makeScene(withBlockingObstacle = false) {
   return scene
 }
 
+function makeSteepNorthFacingScene() {
+  const roofPolygon = [
+    metersToLonLat(-2, -2),
+    metersToLonLat(2, -2),
+    metersToLonLat(2, 2),
+    metersToLonLat(-2, 2),
+  ] as Array<[number, number]>
+
+  const scene = prepareShadingScene({
+    gridResolutionM: 1,
+    roofs: [
+      {
+        roofId: 'roof-north',
+        polygon: roofPolygon,
+        vertexHeightsM: [12, 12, 0, 0],
+      },
+    ],
+    obstacles: [],
+  })
+
+  expect(scene).not.toBeNull()
+  if (!scene) {
+    throw new Error('Expected valid scene')
+  }
+
+  return scene
+}
+
 describe('computeAnnualSunAccess', () => {
   it('returns fully lit metrics for an unobstructed roof', () => {
     const scene = makeScene(false)
@@ -65,6 +93,7 @@ describe('computeAnnualSunAccess', () => {
 
     expect(result.roofs).toHaveLength(1)
     expect(result.roofs[0].daylightHours).toBeGreaterThan(0)
+    expect(result.roofs[0].frontSideHours).toBeGreaterThan(0)
     expect(result.roofs[0].sunAccessRatio).toBeCloseTo(1, 8)
     expect(result.heatmapCells.length).toBe(scene.roofs[0].samples.length)
     for (const cell of result.heatmapCells) {
@@ -130,8 +159,8 @@ describe('computeAnnualSunAccess', () => {
       return
     }
 
-    const daylightDelta = Math.abs(mirrored.roofs[0].daylightHours - full.roofs[0].daylightHours)
-    expect(daylightDelta / full.roofs[0].daylightHours).toBeLessThan(0.15)
+    const frontSideDelta = Math.abs(mirrored.roofs[0].frontSideHours - full.roofs[0].frontSideHours)
+    expect(frontSideDelta / full.roofs[0].frontSideHours).toBeLessThan(0.15)
   })
 
   it('excludes all daylight when low-sun threshold is set above possible elevations', () => {
@@ -152,6 +181,7 @@ describe('computeAnnualSunAccess', () => {
     }
 
     expect(result.roofs[0].daylightHours).toBe(0)
+    expect(result.roofs[0].frontSideHours).toBe(0)
     expect(result.roofs[0].sunHours).toBe(0)
     expect(result.roofs[0].sunAccessRatio).toBe(0)
     expect(result.heatmapCells.every((cell) => cell.litRatio === 0)).toBeTruthy()
@@ -187,7 +217,33 @@ describe('computeAnnualSunAccess', () => {
 
     expect(dateRange.meta.dateStartIso).toBe('2026-06-01')
     expect(dateRange.meta.dateEndIso).toBe('2026-06-30')
-    expect(dateRange.roofs[0].daylightHours).toBeLessThan(fullYear.roofs[0].daylightHours)
+    expect(dateRange.roofs[0].frontSideHours).toBeLessThan(fullYear.roofs[0].frontSideHours)
     expect(dateRange.roofs[0].sunAccessRatio).toBeGreaterThan(0)
+  })
+
+  it('does not count non-front-side daylight in annual denominator', () => {
+    const scene = makeSteepNorthFacingScene()
+    const result = computeAnnualSunAccess({
+      scene,
+      dateStartIso: '2026-12-21',
+      dateEndIso: '2026-12-21',
+      timeZone: 'Europe/Warsaw',
+      halfYearMirror: false,
+      sampleWindowDays: 1,
+      stepMinutes: 30,
+      lowSunElevationThresholdDeg: 0,
+    })
+
+    expect(result).not.toBeNull()
+    if (!result) {
+      return
+    }
+
+    expect(result.roofs).toHaveLength(1)
+    expect(result.roofs[0].sunHours).toBe(0)
+    expect(result.roofs[0].daylightHours).toBeGreaterThan(0)
+    expect(result.roofs[0].frontSideHours).toBe(0)
+    expect(result.roofs[0].sunAccessRatio).toBe(0)
+    expect(result.heatmapCells.every((cell) => cell.litRatio === 0)).toBeTruthy()
   })
 })

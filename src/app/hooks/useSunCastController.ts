@@ -1,7 +1,7 @@
-import { useCanvasModel } from '../../application/presentation/useCanvasModel'
-import { useSidebarModel } from '../../application/presentation/useSidebarModel'
-import { useSunCastPresentationState } from '../../application/presentation/useSunCastPresentationState'
-import { useTutorialModel } from '../../application/presentation/useTutorialModel'
+import { useCanvasModel } from '../presentation/useCanvasModel'
+import { useSidebarModel } from '../presentation/useSidebarModel'
+import { useSunCastPresentationState } from '../presentation/useSunCastPresentationState'
+import { useTutorialModel } from '../presentation/useTutorialModel'
 import type { SunCastCanvasModel, SunCastSidebarModel, SunCastTutorialModel } from './sunCastController.types'
 
 export type { SunCastCanvasModel, SunCastSidebarModel, SunCastTutorialModel } from './sunCastController.types'

@@ -19,8 +19,11 @@ const mockSelectEdge = vi.fn()
 vi.mock('../../state/project-store', () => ({
   useProjectStore: () => mockUseProjectStore(),
 }))
+vi.mock('../../state/project-store/useProjectStore', () => ({
+  useProjectStore: () => mockUseProjectStore(),
+}))
 
-vi.mock('./useSolvedRoofEntries', () => ({
+vi.mock('../../app/analysis/useSolvedRoofEntries', () => ({
   useSolvedRoofEntries: (...args: unknown[]) => mockUseSolvedRoofEntries(...args),
 }))
 

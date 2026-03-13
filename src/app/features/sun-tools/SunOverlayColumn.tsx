@@ -4,19 +4,10 @@ import { AnnualSunAccessPanel } from './AnnualSunAccessPanel'
 import { ForecastPvPanel } from './ForecastPvPanel'
 import { MonthlyProductionPanel } from './MonthlyProductionPanel'
 import { SunDateTimePanel } from './SunDateTimePanel'
-import type { RoofPlane } from '../../../types/geometry'
+import type { SelectedRoofSunInput } from '../../../types/presentation-contracts'
 import type { AnnualSunAccessResult } from '../../../geometry/shading'
 import type { AnnualSimulationOptions, AnnualSimulationState } from '../../hooks/useAnnualRoofSimulation'
-
-export interface SelectedRoofSunInput {
-  footprintId: string
-  latDeg: number
-  lonDeg: number
-  kwp: number
-  roofPitchDeg: number
-  roofAzimuthDeg: number
-  roofPlane: RoofPlane
-}
+export type { SelectedRoofSunInput } from '../../../types/presentation-contracts'
 
 interface SunOverlayColumnProps {
   children: ReactNode

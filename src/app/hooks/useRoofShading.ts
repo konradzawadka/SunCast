@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { computeRoofShadeGrid, type ComputeRoofShadeGridInput, type ComputeRoofShadeGridResult } from '../../geometry/shading'
-import type { RoofShadeDiagnostics, ShadingObstacleInput, ShadingRoofInput } from '../../geometry/shading/types'
+import type { RoofShadeDiagnostics, ShadingRoofInput } from '../../geometry/shading/types'
 import { toShadingObstacleVolume } from '../../geometry/obstacles/obstacleModels'
 import type { ObstacleStateEntry } from '../../types/geometry'
 
@@ -32,11 +32,13 @@ export interface RoofShadingResult {
 interface RoofShadingRequest {
   payload: ComputeRoofShadeGridInput
   key: string
+  cacheRevision: number
   computeMode: 'final' | 'coarse'
   usedGridResolutionM: number
 }
 
 export interface UseRoofShadingArgs {
+  cacheRevision: number
   enabled: boolean
   roofs: ShadingRoofInput[]
   obstacles: ObstacleStateEntry[]
@@ -52,54 +54,16 @@ const DEFAULT_INTERACTION_THROTTLE_MS = 100
 const MIN_COARSE_GRID_RESOLUTION_M = 0.9
 const MAX_INTERACTION_SAMPLE_COUNT = 3500
 
-// Purpose: Encapsulates to point fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function toPointFingerprint([lon, lat]: [number, number]): string {
-  return `${lon.toFixed(7)},${lat.toFixed(7)}`
-}
-
-// Purpose: Encapsulates roof fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function roofFingerprint(roof: ShadingRoofInput): string {
-  const vertices = roof.polygon.map(toPointFingerprint).join(';')
-  const heights = roof.vertexHeightsM.map((height) => height.toFixed(4)).join(';')
-  return `${roof.roofId}|${vertices}|${heights}`
-}
-
-// Purpose: Encapsulates obstacle fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function obstacleFingerprint(obstacle: ShadingObstacleInput): string {
-  if (obstacle.shape === 'prism') {
-    const vertices = obstacle.polygon.map(toPointFingerprint).join(';')
-    return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${vertices}`
-  }
-
-  return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${toPointFingerprint(
-    obstacle.center,
-  )}|${obstacle.radiusM.toFixed(3)}`
-}
-
 // Purpose: Builds request key from the provided inputs.
 // Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
 function createRequestKey(request: RoofShadingRequest): string {
-  const roofsKey = [...request.payload.roofs]
-    .sort((a, b) => a.roofId.localeCompare(b.roofId))
-    .map(roofFingerprint)
-    .join('||')
-
-  const obstaclesKey = [...request.payload.obstacles]
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map(obstacleFingerprint)
-    .join('||')
-
   return [
+    String(request.cacheRevision),
     request.computeMode,
     request.payload.datetimeIso,
     request.payload.gridResolutionM.toFixed(4),
     String(request.payload.maxSampleCount ?? ''),
     request.payload.sampleOverflowStrategy ?? '',
-    roofsKey,
-    obstaclesKey,
   ].join('::')
 }
 
@@ -154,6 +118,7 @@ function toHeatmapFeatures(result: ComputeRoofShadeGridResult): ShadeHeatmapFeat
 // Purpose: Builds request from the provided inputs.
 // Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
 function makeRequest({
+  cacheRevision,
   enabled,
   datetimeIso,
   roofs,
@@ -162,7 +127,7 @@ function makeRequest({
   interactionActive,
 }: Pick<
   UseRoofShadingArgs,
-  'enabled' | 'datetimeIso' | 'roofs' | 'obstacles' | 'gridResolutionM' | 'interactionActive'
+  'cacheRevision' | 'enabled' | 'datetimeIso' | 'roofs' | 'obstacles' | 'gridResolutionM' | 'interactionActive'
 >): RoofShadingRequest | null {
   if (!enabled || !datetimeIso || roofs.length === 0 || gridResolutionM <= 0) {
     return null
@@ -186,6 +151,7 @@ function makeRequest({
 
   const provisionalRequest: RoofShadingRequest = {
     payload,
+    cacheRevision,
     computeMode,
     usedGridResolutionM,
     key: '',
@@ -210,7 +176,7 @@ const IDLE_RESULT: RoofShadingResult = {
 // Purpose: Coordinates the roof shading workflow as a reusable hook.
 // Why: Keeps orchestration logic reusable and separated from component rendering.
 export function useRoofShading(args: UseRoofShadingArgs): RoofShadingResult {
-  const { enabled, datetimeIso, roofs, obstacles, gridResolutionM, interactionActive } = args
+  const { cacheRevision, enabled, datetimeIso, roofs, obstacles, gridResolutionM, interactionActive } = args
 
   const interactionThrottleMs =
     Number.isFinite(args.interactionThrottleMs) && args.interactionThrottleMs !== undefined
@@ -218,8 +184,8 @@ export function useRoofShading(args: UseRoofShadingArgs): RoofShadingResult {
       : DEFAULT_INTERACTION_THROTTLE_MS
 
   const request = useMemo(
-    () => makeRequest({ enabled, datetimeIso, roofs, obstacles, gridResolutionM, interactionActive }),
-    [datetimeIso, enabled, gridResolutionM, interactionActive, obstacles, roofs],
+    () => makeRequest({ cacheRevision, enabled, datetimeIso, roofs, obstacles, gridResolutionM, interactionActive }),
+    [cacheRevision, datetimeIso, enabled, gridResolutionM, interactionActive, obstacles, roofs],
   )
   const [throttledRequest, setThrottledRequest] = useState<RoofShadingRequest | null>(null)
 

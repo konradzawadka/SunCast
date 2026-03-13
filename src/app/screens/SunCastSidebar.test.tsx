@@ -8,9 +8,9 @@ import { SunCastSidebar } from './SunCastSidebar'
 import type { SunCastSidebarModel } from '../hooks/useSunCastController'
 
 vi.mock('../components/FootprintPanel', () => ({ FootprintPanel: () => <div data-testid="footprint-panel" /> }))
-vi.mock('../components/RoofEditor/RoofEditor', () => ({ RoofEditor: () => <div data-testid="roof-editor-panel" /> }))
-vi.mock('../components/ObstaclePanel', () => ({ ObstaclePanel: () => <div data-testid="obstacle-panel" /> }))
-vi.mock('../components/StatusPanel', () => ({ StatusPanel: () => null }))
+vi.mock('../features/sidebar/RoofEditor', () => ({ RoofEditor: () => <div data-testid="roof-editor-panel" /> }))
+vi.mock('../features/sidebar/ObstaclePanel', () => ({ ObstaclePanel: () => <div data-testid="obstacle-panel" /> }))
+vi.mock('../features/sidebar/StatusPanel', () => ({ StatusPanel: () => null }))
 vi.mock('../features/debug/DevTools', () => ({ DevTools: () => null }))
 
 function makeModel(overrides: Partial<SunCastSidebarModel> = {}): SunCastSidebarModel {

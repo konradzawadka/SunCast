@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Input } from '../../../components/ui/input'
+import { Input } from '../../components/ui/input'
 import { usePlaceSearch } from './usePlaceSearch'
 import type { PlaceSearchResult } from './placeSearch.types'
 

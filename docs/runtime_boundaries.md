@@ -29,6 +29,7 @@ Rules:
 Responsibilities:
 - reducer transitions and command-style updates
 - active/selected footprint and obstacle management
+- canonical project-document projection for app composition (`useProjectDocument`)
 - persistence load/save
 - payload sanitization/migration
 - share payload mapping/import/export
@@ -38,6 +39,42 @@ Rules:
 - persisted data includes footprints/constraints/obstacles/sun+shading settings
 - persisted data must not store derived meshes, solved planes, or shading output grids
 - unknown future schema versions are rejected (fail-closed)
+
+## App Session (`src/app/editor-session/*`)
+
+Responsibilities:
+- ephemeral editing/session state (selection, drafts, interaction guards)
+- reducer/selectors for transient editor controls
+- UI-safe editing commands delegated from presentation orchestration
+
+Rules:
+- session state is never canonical persisted project data
+- session modules may depend on `state/project-store` contracts and app hooks
+- session modules must not implement geometry solver/shading math
+
+## App Analysis (`src/app/analysis/*`)
+
+Responsibilities:
+- derive solved roofs, selected roof sun inputs, shading roofs, and diagnostics
+- orchestrate live shading and annual simulation hooks
+- provide typed derived outputs for presentation and adapters
+
+Rules:
+- analysis outputs are derived artifacts only (non-canonical)
+- analysis must consume geometry/state contracts and avoid UI rendering concerns
+- expensive compute orchestration must preserve responsiveness
+
+## App Presentation (`src/app/presentation/*`)
+
+Responsibilities:
+- compose sidebar/canvas/tutorial models from state/session/analysis outputs
+- map typed action handlers to screen-facing model contracts
+- coordinate error/reporting side effects at composition layer
+
+Rules:
+- presentation must not implement geometry solver/shading math
+- presentation consumes app/state contracts and returns UI-ready models
+- presentation is the boundary before screen components
 
 ## App Orchestration (`src/app/hooks/*`)
 
@@ -75,7 +112,7 @@ Responsibilities:
 Rules:
 - adapters are thin lifecycle/sync/event-emission layers only
 - no domain/solver business rules in adapters
-- adapter inputs must be narrow, typed contracts from `application/*`
+- adapter inputs must be narrow, typed contracts from `src/app/presentation/*` or `src/app/analysis/*`
 
 ## Rendering (`src/rendering/*`)
 

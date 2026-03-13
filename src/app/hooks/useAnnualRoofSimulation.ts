@@ -4,7 +4,6 @@ import {
   prepareShadingScene,
   type AnnualSunAccessProgress,
   type AnnualSunAccessResult,
-  type ShadingObstacleInput,
   type ShadingRoofInput,
 } from '../../geometry/shading'
 import { toShadingObstacleVolume } from '../../geometry/obstacles/obstacleModels'
@@ -35,6 +34,7 @@ export interface AnnualSimulationOptions {
 }
 
 export interface UseAnnualRoofSimulationArgs {
+  cacheRevision: number
   roofs: ShadingRoofInput[]
   obstacles: ObstacleStateEntry[]
   gridResolutionM: number
@@ -64,33 +64,6 @@ function clampProgressRatio(value: number): number {
     return 0
   }
   return Math.max(0, Math.min(1, value))
-}
-
-// Purpose: Encapsulates to point fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function toPointFingerprint([lon, lat]: [number, number]): string {
-  return `${lon.toFixed(7)},${lat.toFixed(7)}`
-}
-
-// Purpose: Encapsulates roof fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function roofFingerprint(roof: ShadingRoofInput): string {
-  const vertices = roof.polygon.map(toPointFingerprint).join(';')
-  const heights = roof.vertexHeightsM.map((height) => height.toFixed(4)).join(';')
-  return `${roof.roofId}|${vertices}|${heights}`
-}
-
-// Purpose: Encapsulates obstacle fingerprint behavior in one reusable function.
-// Why: Improves readability by isolating a single responsibility behind a named function.
-function obstacleFingerprint(obstacle: ShadingObstacleInput): string {
-  if (obstacle.shape === 'prism') {
-    const vertices = obstacle.polygon.map(toPointFingerprint).join(';')
-    return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${vertices}`
-  }
-
-  return `${obstacle.id}|${obstacle.kind}|${obstacle.shape}|${obstacle.heightAboveGroundM.toFixed(3)}|${toPointFingerprint(
-    obstacle.center,
-  )}|${obstacle.radiusM.toFixed(3)}`
 }
 
 // Purpose: Encapsulates cache annual result behavior in one reusable function.
@@ -141,27 +114,17 @@ function toAnnualHeatmapFeatures(result: AnnualSunAccessResult): ShadeHeatmapFea
   }))
 }
 
-// Purpose: Builds geometry key from the provided inputs.
-// Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
-function buildGeometryKey(roofs: ShadingRoofInput[], obstacles: ShadingObstacleInput[], gridResolutionM: number): string {
-  const roofsKey = [...roofs]
-    .sort((a, b) => a.roofId.localeCompare(b.roofId))
-    .map(roofFingerprint)
-    .join('||')
-
-  const obstaclesKey = [...obstacles]
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .map(obstacleFingerprint)
-    .join('||')
-
-  return [gridResolutionM.toFixed(4), roofsKey, obstaclesKey].join('::')
-}
-
 // Purpose: Builds run key from the provided inputs.
 // Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
-function buildRunKey(geometryKey: string, timeZone: string, options: AnnualSimulationOptions): string {
+function buildRunKey(
+  cacheRevision: number,
+  gridResolutionM: number,
+  timeZone: string,
+  options: AnnualSimulationOptions,
+): string {
   return [
-    geometryKey,
+    String(cacheRevision),
+    gridResolutionM.toFixed(4),
     timeZone,
     String(options.year ?? ''),
     String(options.dateStartIso ?? ''),
@@ -211,11 +174,10 @@ async function yieldToBrowser(): Promise<void> {
 // Why: Keeps orchestration logic reusable and separated from component rendering.
 export function useAnnualRoofSimulation(args: UseAnnualRoofSimulationArgs): AnnualRoofSimulationHookResult {
   const shadingObstacles = useMemo(() => args.obstacles.map(toShadingObstacleVolume), [args.obstacles])
-  const geometryKey = useMemo(
-    () => buildGeometryKey(args.roofs, shadingObstacles, args.gridResolutionM),
-    [args.gridResolutionM, args.roofs, shadingObstacles],
+  const simulationContextKey = useMemo(
+    () => `${args.cacheRevision}::${args.gridResolutionM.toFixed(4)}::${args.timeZone}`,
+    [args.cacheRevision, args.gridResolutionM, args.timeZone],
   )
-  const simulationContextKey = useMemo(() => `${geometryKey}::${args.timeZone}`, [args.timeZone, geometryKey])
 
   const runTokenRef = useRef(0)
   const lastReportedErrorRef = useRef<string | null>(null)
@@ -303,7 +265,7 @@ export function useAnnualRoofSimulation(args: UseAnnualRoofSimulationArgs): Annu
       })
       lastReportedErrorRef.current = null
 
-      const runKey = buildRunKey(geometryKey, args.timeZone, options)
+      const runKey = buildRunKey(args.cacheRevision, args.gridResolutionM, args.timeZone, options)
       const cached = annualSimulationCache.get(runKey)
       if (cached) {
         if (runTokenRef.current !== runToken) {
@@ -403,7 +365,7 @@ export function useAnnualRoofSimulation(args: UseAnnualRoofSimulationArgs): Annu
       })
       lastReportedErrorRef.current = null
     },
-    [args.gridResolutionM, args.roofs, args.timeZone, geometryKey, shadingObstacles, simulationContextKey],
+    [args.cacheRevision, args.gridResolutionM, args.roofs, args.timeZone, shadingObstacles, simulationContextKey],
   )
   const hasContextMismatch = store.contextKey !== simulationContextKey
 

@@ -164,6 +164,7 @@ interface AnnualAccumulator {
       roofId: string
       sunHours: number
       daylightHours: number
+      frontSideHours: number
       litCellCountWeighted: number
       totalCellCountWeighted: number
     }
@@ -173,6 +174,7 @@ interface AnnualAccumulator {
     Array<{
       litHours: number
       daylightHours: number
+      frontSideHours: number
     }>
   >
   sampledDayCount: number
@@ -189,6 +191,7 @@ function createAccumulator(input: AnnualSunAccessInput): AnnualAccumulator {
           roofId: roof.roofId,
           sunHours: 0,
           daylightHours: 0,
+          frontSideHours: 0,
           litCellCountWeighted: 0,
           totalCellCountWeighted: 0,
         },
@@ -200,6 +203,7 @@ function createAccumulator(input: AnnualSunAccessInput): AnnualAccumulator {
         roof.samples.map(() => ({
           litHours: 0,
           daylightHours: 0,
+          frontSideHours: 0,
         })),
       ]),
     ),
@@ -253,6 +257,9 @@ function processSimulatedDay(input: AnnualSunAccessInput, stepMinutes: number, s
       const litFraction = roofSnapshot.litCellCount / cellCount
       roofAccum.sunHours += litFraction * weightedStepHours
       roofAccum.daylightHours += weightedStepHours
+      if (roofSnapshot.isSunFacing) {
+        roofAccum.frontSideHours += weightedStepHours
+      }
       roofAccum.litCellCountWeighted += roofSnapshot.litCellCount * weightedStepHours
       roofAccum.totalCellCountWeighted += cellCount * weightedStepHours
 
@@ -263,6 +270,9 @@ function processSimulatedDay(input: AnnualSunAccessInput, stepMinutes: number, s
 
       for (let i = 0; i < roofSnapshot.shadeFactors.length; i += 1) {
         roofCells[i].daylightHours += weightedStepHours
+        if (roofSnapshot.isSunFacing) {
+          roofCells[i].frontSideHours += weightedStepHours
+        }
         if (roofSnapshot.shadeFactors[i] === 0) {
           roofCells[i].litHours += weightedStepHours
         }
@@ -282,7 +292,7 @@ function finalizeResult(
   dateEndIso: string,
 ): AnnualSunAccessResult {
   const roofs = Array.from(accum.roofAccumById.values()).map((roof) => {
-    const sunAccessRatio = roof.daylightHours > 0 ? roof.sunHours / roof.daylightHours : 0
+    const sunAccessRatio = roof.frontSideHours > 0 ? roof.sunHours / roof.frontSideHours : 0
     return {
       ...roof,
       sunAccessRatio,
@@ -299,7 +309,7 @@ function finalizeResult(
     for (let i = 0; i < roof.samples.length; i += 1) {
       const sample = roof.samples[i]
       const cellAccum = roofCellAccum[i]
-      const litRatio = cellAccum.daylightHours > 0 ? cellAccum.litHours / cellAccum.daylightHours : 0
+      const litRatio = cellAccum.frontSideHours > 0 ? cellAccum.litHours / cellAccum.frontSideHours : 0
       heatmapCells.push({
         roofId: roof.roofId,
         cellPolygon: sample.cellPolygonLocal.map((point) => localMetersToLonLat(input.scene.origin, point)),

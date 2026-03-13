@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { projectPointsToLocalMeters } from '../../../geometry/projection/localMeters'
 import { clampAzimuth, planeSlopeFromPitchAzimuth } from '../../../geometry/solver/metrics'
 import type { FootprintPolygon } from '../../../types/geometry'
-import type { SolvedEntry } from '../../hooks/useSolvedRoofEntries'
+import type { SolvedEntry } from '../../analysis/solvedRoof.types'
 
 interface UseRoofDebugSimulationParams {
   activeFootprint: FootprintPolygon | null

@@ -184,6 +184,8 @@ describe('useProjectStore startup hydration', () => {
     const hook = renderStore()
     await hook.waitForHydrate()
 
+    const writeCallsBeforeSelection = mockWriteStorage.mock.calls.length
+
     act(() => {
       hook.get().selectOnlyFootprint('another')
     })
@@ -200,6 +202,49 @@ describe('useProjectStore startup hydration', () => {
     })
     expect(latestCall?.[0].drawDraft).toBeUndefined()
     expect(latestCall?.[0].selectedFootprintIds).toBeUndefined()
+    expect(mockWriteStorage.mock.calls).toHaveLength(writeCallsBeforeSelection)
+    hook.unmount()
+  })
+
+  it('increments stateRevision only for geometry-affecting updates', async () => {
+    const stored = createState('a')
+    stored.footprints.b = {
+      footprint: {
+        id: 'b',
+        vertices: [
+          [3, 3],
+          [4, 3],
+          [4, 4],
+        ],
+        kwp: 5,
+      },
+      constraints: { vertexHeights: [] },
+      pitchAdjustmentPercent: 0,
+    }
+    stored.selectedFootprintIds = ['a', 'b']
+
+    mockDecodeSharePayloadResult.mockResolvedValue({
+      ok: false,
+      error: { code: 'SHARE_PAYLOAD_INVALID', message: 'Invalid shared URL payload.' },
+    })
+    mockReadStorage.mockReturnValue({ ok: true, value: stored })
+
+    const hook = renderStore()
+    await hook.waitForHydrate()
+
+    const afterHydrationRevision = hook.get().stateRevision
+
+    act(() => {
+      hook.get().selectOnlyFootprint('b')
+    })
+
+    expect(hook.get().stateRevision).toBe(afterHydrationRevision)
+
+    act(() => {
+      hook.get().moveVertex(0, [3.1, 3.1])
+    })
+
+    expect(hook.get().stateRevision).toBe(afterHydrationRevision + 1)
     hook.unmount()
   })
 })

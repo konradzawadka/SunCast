@@ -1,4 +1,5 @@
 export { useProjectStore } from './useProjectStore'
+export { useProjectDocument } from './useProjectDocument'
 export { createProjectCommands } from './projectState.commands'
 export { projectStateReducer, initialProjectState } from './projectState.reducer'
 export {

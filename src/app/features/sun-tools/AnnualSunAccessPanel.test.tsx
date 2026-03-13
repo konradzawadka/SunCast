@@ -19,6 +19,7 @@ function renderPanel() {
         roofId: 'roof-1',
         sunHours: 1000,
         daylightHours: 1200,
+        frontSideHours: 1100,
         sunAccessRatio: 0.8333,
         litCellCountWeighted: 1000,
         totalCellCountWeighted: 1200,

@@ -80,6 +80,7 @@ export interface RoofShadeResult {
 
 export interface RoofShadeSnapshotResult {
   roofId: string
+  isSunFacing: boolean
   shadedCellCount: number
   litCellCount: number
   shadeFactors: Array<0 | 1>
@@ -182,6 +183,7 @@ export interface AnnualSunAccessRoofResult {
   roofId: string
   sunHours: number
   daylightHours: number
+  frontSideHours: number
   sunAccessRatio: number
   litCellCountWeighted: number
   totalCellCountWeighted: number

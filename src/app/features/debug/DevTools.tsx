@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FaceConstraints, FootprintPolygon } from '../../../types/geometry'
-
-export type ImportedFootprintConfigEntry = {
-  footprintId: string
-  polygon: Array<[number, number]>
-  vertexHeights: Array<{ vertexIndex: number; heightM: number }>
-}
+import type { ImportedFootprintConfigEntry } from '../../../types/presentation-contracts'
 
 interface FootprintDebugEntry {
   footprintId: string

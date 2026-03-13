@@ -1,5 +1,5 @@
 import { HEIGHT_STEP_M, HEIGHT_STEP_SHIFT_M } from './mapViewConstants'
-import type { DrawingAngleHint, HoveredEdgeLength, VertexDragAngleHint } from './useMapInteractions'
+import type { DrawingAngleHint, HoveredEdgeLength, VertexDragAngleHint } from './hooks/useMapInteractions'
 import { PlaceSearchPanel } from '../../place-search/PlaceSearchPanel'
 import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 

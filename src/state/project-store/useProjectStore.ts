@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react'
 import { createProjectCommands } from './projectState.commands'
 import {
   DEFAULT_FOOTPRINT_KWP,
@@ -19,17 +19,43 @@ import {
 } from './projectState.selectors'
 import { readStorageResult, writeStorage } from './projectState.storage'
 import { deserializeSharePayloadResult } from './projectState.share'
+import type { Action } from './projectState.types'
 import { decodeSharePayloadResult } from '../../shared/utils/shareCodec'
 import { captureException, recordEvent } from '../../shared/observability/observability'
 import { createAppError, reportAppError } from '../../shared/errors'
-import { selectEditorSession } from '../../application/editor-session/editorSession.selectors'
-import { selectProjectDocument } from '../../domain/project-document/projectDocument.selectors'
 
 const SOLVER_CONFIG_VERSION = 'uc7'
+const GEOMETRY_REVISION_ACTION_TYPES = new Set<Action['type']>([
+  'COMMIT_FOOTPRINT',
+  'DELETE_FOOTPRINT',
+  'MOVE_VERTEX',
+  'MOVE_EDGE',
+  'SET_VERTEX_HEIGHT',
+  'SET_VERTEX_HEIGHTS',
+  'SET_EDGE_HEIGHT',
+  'CLEAR_VERTEX_HEIGHT',
+  'CLEAR_EDGE_HEIGHT',
+  'COMMIT_OBSTACLE',
+  'DELETE_OBSTACLE',
+  'SET_OBSTACLE_HEIGHT',
+  'SET_OBSTACLE_KIND',
+  'MOVE_OBSTACLE_VERTEX',
+  'UPSERT_IMPORTED_FOOTPRINTS',
+  'LOAD',
+  'RESET_STATE',
+])
 
 export function useProjectStore() {
-  const [state, dispatch] = useReducer(projectStateReducer, initialProjectState)
+  const [state, dispatchRaw] = useReducer(projectStateReducer, initialProjectState)
   const hasSkippedInitialPersist = useRef(false)
+  const stateRevisionRef = useRef(0)
+
+  const dispatch = useCallback((action: Action) => {
+    dispatchRaw(action)
+    if (GEOMETRY_REVISION_ACTION_TYPES.has(action.type)) {
+      stateRevisionRef.current += 1
+    }
+  }, [dispatchRaw])
 
   useEffect(() => {
     let cancelled = false
@@ -127,9 +153,7 @@ export function useProjectStore() {
       DEFAULT_FOOTPRINT_KWP,
     )
   }, [
-    state.activeFootprintId,
     state.footprints,
-    state.activeObstacleId,
     state.obstacles,
     state.sunProjection,
     state.shadingSettings,
@@ -137,11 +161,26 @@ export function useProjectStore() {
 
   return useMemo(() => {
     const activeFootprint = getActiveFootprint(state)
-    const projectDocument = selectProjectDocument(state)
-    const editorSession = selectEditorSession(state)
+    const projectDocument = {
+      footprints: state.footprints,
+      obstacles: state.obstacles,
+      sunProjection: state.sunProjection,
+      shadingSettings: state.shadingSettings,
+    }
+    const editorSession = {
+      activeFootprintId: state.activeFootprintId,
+      selectedFootprintIds: state.selectedFootprintIds,
+      drawDraft: state.drawDraft,
+      isDrawing: state.isDrawing,
+      activeObstacleId: state.activeObstacleId,
+      selectedObstacleIds: state.selectedObstacleIds,
+      obstacleDrawDraft: state.obstacleDrawDraft,
+      isDrawingObstacle: state.isDrawingObstacle,
+    }
 
     return {
       state,
+      stateRevision: stateRevisionRef.current,
       projectDocument,
       editorSession,
       activeFootprint,

@@ -48,11 +48,11 @@
 - Decision: run lower-cost coarse shading while geometry is actively edited/dragged, then resolve to full-resolution shading when interaction settles; cache by deterministic input fingerprint.
 - Why: preserves UI responsiveness during edits while keeping final shading output deterministic for stable inputs.
 
-## D9. Worker-First Roof Heatmap Overlay Build With Main-Thread Fallback
+## D9. Worker-First Roof Heatmap Overlay Build With Fail-Closed Degradation
 
 - Status: accepted
-- Decision: build roof heatmap overlay geometry in a Web Worker when available, and fall back to synchronous main-thread generation on worker unavailability/failure.
-- Why: heavy triangulation/projection work should not block map interaction, but rendering must remain functional in constrained runtimes.
+- Decision: build roof heatmap overlay geometry in a Web Worker when available; on worker unavailability/failure/dispatch errors, stop heatmap processing and surface a typed recoverable app error.
+- Why: heavy triangulation/projection work should not block map interaction, and failure handling must be explicit and deterministic instead of silently switching execution modes.
 
 ## D10. Selective Legacy-Default Upgrade For Shading Grid Resolution
 

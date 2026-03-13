@@ -4,8 +4,8 @@ import type { Action, ProjectState } from './projectState.types'
 import {
   DEFAULT_FOOTPRINT_KWP,
   projectDocumentReducer,
-} from '../../domain/project-document/projectDocument.reducer'
-import { editorSessionReducer } from '../../application/editor-session/editorSession.reducer'
+} from './projectDocument.reducer'
+import { editorSessionReducer } from '../../app/editor-session/editorSession.reducer'
 
 export { DEFAULT_FOOTPRINT_KWP }
 

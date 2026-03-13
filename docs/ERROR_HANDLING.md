@@ -97,7 +97,7 @@ Rules:
 - if max duration is reached while compute is still active, the processing toast is suppressed until sources return to idle
 
 Current wired sources:
-- controller geometry compute
+- geometry compute (`controller.compute`, from presentation state)
 - forecast compute
 
 ### 5.4 Toast actions for recoverable failures
@@ -110,12 +110,12 @@ Current action contract:
 
 Event bridge:
 - UI dispatches `GLOBAL_ERROR_TOAST_ACTION_EVENT_NAME`
-- controller handles actions (state reset/share URL generation)
+- presentation state handles actions (state reset/share URL generation)
 
 Implementation:
 - `src/app/components/GlobalErrorToasts.tsx`
 - `src/app/components/globalErrorToastActions.ts`
-- `src/app/hooks/useSunCastController.ts`
+- `src/app/presentation/useSunCastPresentationState.ts`
 
 ### 5.5 Fatal failures
 
@@ -131,7 +131,7 @@ This is intentionally separate from operational toasts.
 - return typed failures for expected invalid input/state
 - never import UI
 
-### Application orchestration (`src/app/hooks/*`)
+### Application orchestration (`src/app/presentation/*`, `src/app/hooks/*`)
 - converts domain/app failures into user flow decisions
 - reports with `reportAppError*`
 - avoids silent fallback
@@ -160,7 +160,7 @@ Representative files:
 - `src/shared/utils/shareCodec.ts`
 - `src/state/project-store/projectState.share.ts`
 - `src/geometry/mesh/generateObstacleMesh.ts`
-- `src/app/features/map-editor/MapView/useMapInstance.ts`
+- `src/app/features/map-editor/MapView/hooks/useMapInstance.ts`
 - `src/shared/errors/reportAppError.ts`
 - `src/app/components/GlobalErrorToasts.tsx`
 

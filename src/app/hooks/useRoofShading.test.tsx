@@ -106,6 +106,7 @@ function renderUseRoofShading(initialArgs: UseRoofShadingArgs) {
 
 function makeArgs(overrides: Partial<UseRoofShadingArgs> = {}): UseRoofShadingArgs {
   return {
+    cacheRevision: 1,
     enabled: true,
     roofs: [
       {
@@ -205,6 +206,16 @@ describe('useRoofShading', () => {
 
     expect(mockComputeRoofShadeGrid).toHaveBeenCalledTimes(1)
     expect(hook.get().computeState).toBe('READY')
+    hook.unmount()
+  })
+
+  it('recomputes when cache revision changes', () => {
+    const hook = renderUseRoofShading(makeArgs({ cacheRevision: 1, datetimeIso: '2026-03-08T13:45' }))
+    expect(mockComputeRoofShadeGrid).toHaveBeenCalledTimes(1)
+
+    hook.rerender(makeArgs({ cacheRevision: 2, datetimeIso: '2026-03-08T13:45' }))
+
+    expect(mockComputeRoofShadeGrid).toHaveBeenCalledTimes(2)
     hook.unmount()
   })
 })

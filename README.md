@@ -66,7 +66,7 @@ Architecture concepts:
 
 Install:
 
-* **Node.js ≥ 18**
+* **Node.js ≥ 20**
 * **npm ≥ 9**
 
 Verify:
@@ -208,12 +208,13 @@ src/
   app/
     components/
       FootprintPanel.tsx
-      RoofEditor/
-      StatusPanel.tsx
+      GlobalErrorToasts.tsx
+      AppErrorBoundary.tsx
     features/
       map-editor/
       sun-tools/
       place-search/
+      sidebar/
       tutorial/
     screens/
       SunCastScreen.tsx
@@ -224,12 +225,13 @@ src/
     projection/
     solver/
     mesh/
+    obstacles/
+    shading/
     sun/
-  rendering/
-    roof-layer/
   state/
     project-store/
   types/
+  shared/
 docs/
 ```
 
@@ -246,8 +248,10 @@ docs/
 Primary handover docs:
 
 - `docs/ARCHITECTURE.md`
+- `docs/runtime_boundaries.md`
 - `docs/RUNBOOK.md`
 - `docs/DECISIONS.md`
+- `docs/ERROR_HANDLING.md`
 - `docs/FEATURES.md`
 - `docs/VENDOR_HANDOVER.md`
 
@@ -271,7 +275,8 @@ Important design principles:
 
 Recommended development workflow:
 
-1. read relevant **UC*.md** in `docs/product/`
-2. update logic or UI
-3. add or update tests
-4. verify with Playwright E2E
+1. read canonical docs first (`docs/ARCHITECTURE.md`, `docs/runtime_boundaries.md`, `docs/DECISIONS.md`)
+2. use `docs/product/UC*` / `docs/product/IP*` as historical context only
+3. update logic or UI
+4. add or update tests
+5. verify with Playwright E2E

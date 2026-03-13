@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { FootprintStateEntry } from '../../state/project-store/projectState.types'
-import type { SolvedEntry } from './useSolvedRoofEntries'
+import type { SolvedEntry } from '../analysis/solvedRoof.types'
 import type { SelectedRoofSunInput } from '../features/sun-tools/SunOverlayColumn'
 import { clampPitchAdjustmentPercent, computeFootprintCentroid } from './sunCastController.types'
 

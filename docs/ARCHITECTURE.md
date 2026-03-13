@@ -27,25 +27,24 @@ Derived-only artifacts (never canonical persisted source data):
 - `src/geometry/*`: pure deterministic geometry, solver, projection, sun math.
 - `src/geometry/obstacles/*`: obstacle shape model + conversions for shading/mesh generation.
 - `src/geometry/shading/*`: deterministic shade snapshot/grid/annual sun-access computations.
-- `src/domain/project-document/*`: canonical persisted document boundary (footprints/constraints/obstacles/sun+shading inputs).
-- `src/application/editor-session/*`: ephemeral editing/session boundary (selection/drafts/interaction UI state).
-- `src/application/analysis/*`: derived computation boundary (solved roofs, live shading, annual simulation, heatmap mode, diagnostics).
-- `src/application/presentation/*`: screen-facing composition models (`sidebar`, `canvas`, `tutorial`) consuming document/session/analysis contracts.
-- `src/state/project-store/*`: reducer/commands/storage/share hydration; composed from document + session reducers.
+- `src/app/editor-session/*`: ephemeral editing/session boundary (selection/drafts/interaction UI state).
+- `src/app/analysis/*`: derived computation boundary (solved roofs, live shading, annual simulation, heatmap mode, diagnostics).
+- `src/app/presentation/*`: screen-facing composition models (`sidebar`, `canvas`, `tutorial`) consuming document/session/analysis contracts.
+- `src/state/project-store/*`: reducer/commands/storage/share hydration; owns canonical project-document state and composes document + session reducers.
 - `src/app/hooks/*`: thin compatibility/composition hooks (legacy entry points and feature hooks).
 - `src/app/features/map-editor/*`: map interactions, drawing, hit-testing, camera/orbit tools.
-- `src/adapters/map/*`: map/render bridge adapters (layer sync, navigation sync, sun-perspective camera sync).
-- `src/rendering/roof-layer/*`: MapLibre custom layers for roof/obstacle meshes and roof heatmap overlays.
+- `src/app/features/map-editor/MapView/hooks/*`: map/render bridge hooks (layer sync, navigation sync, sun-perspective camera sync, map init lifecycle).
+- `src/app/features/map-editor/MapView/roof-layer/*`: MapLibre custom layers for roof/obstacle meshes and roof heatmap overlays.
 - `src/app/features/sun-tools/*`: projection, charts, weather forecast integration.
 - `src/app/features/place-search/*`: Photon provider + search panel.
 
 ## Main Data Flows
 
 1. Map/UI interactions emit edit intents and update the composed store (document + editor session).
-2. `project-document` owns persisted canonical inputs; `editor-session` owns transient runtime interaction state.
+2. `project-store` owns persisted canonical inputs; `editor-session` owns transient runtime interaction state.
 3. `analysis` derives solved roofs, selected roof inputs, live shading, annual simulation output, and typed diagnostics from document + session guards.
 4. `presentation` models shape UI-facing contracts for sidebar/canvas/tutorial from document/session/analysis boundaries.
-5. `adapters/map` synchronize typed presentation outputs into MapLibre/Three layers (geometry, visibility, camera, navigation).
+5. `MapView/hooks` synchronize typed presentation outputs into MapLibre/Three layers (geometry, visibility, camera, navigation).
 6. Rendering layers consume derived mesh/heatmap geometry only; they do not redefine domain behavior.
 7. Storage/share persist and hydrate canonical document data; active/selection ids are intentionally non-canonical in persisted payloads.
 

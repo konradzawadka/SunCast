@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MapOverlayControls } from './MapOverlayControls'
 import { useLatest } from './useLatest'
-import { useMapInstance } from './useMapInstance'
-import { useMapInteractions } from './useMapInteractions'
-import { useMapSources } from './useMapSources'
-import { useOrbitCamera } from './useOrbitCamera'
+import { useMapInstance } from './hooks/useMapInstance'
+import { useMapInteractions } from './hooks/useMapInteractions'
+import { useMapSources } from './hooks/useMapSources'
+import { useOrbitCamera } from './hooks/useOrbitCamera'
 import { pointAtDistanceMeters } from './drawingAssist'
-import type { SunCastCanvasModel } from '../../../../application/presentation/presentationModel.types'
-import { useMapLayerSync } from '../../../../adapters/map/useMapLayerSync'
-import { useMapNavigationSync } from '../../../../adapters/map/useMapNavigationSync'
-import { useSunPerspectiveSync } from '../../../../adapters/map/useSunPerspectiveSync'
+import { useMapLayerSync } from './hooks/useMapLayerSync'
+import { useMapNavigationSync } from './hooks/useMapNavigationSync'
+import { useSunPerspectiveSync } from './hooks/useSunPerspectiveSync'
+import type { SunCastCanvasModel } from '../../../presentation/presentationModel.types'
 
 interface MapViewProps {
   model: SunCastCanvasModel

@@ -1,9 +1,6 @@
-export interface PlaceSearchResult {
-  id: string
-  label: string
-  lat: number
-  lon: number
-}
+import type { PlaceSearchResult } from '../../../types/presentation-contracts'
+
+export type { PlaceSearchResult }
 
 export interface PlaceSearchProvider {
   search(

@@ -23,6 +23,7 @@ function makeAnnualResult(): AnnualSunAccessResult {
         roofId: 'roof-1',
         sunHours: 1234,
         daylightHours: 1500,
+        frontSideHours: 1450,
         sunAccessRatio: 0.82,
         litCellCountWeighted: 400,
         totalCellCountWeighted: 500,
@@ -53,6 +54,7 @@ function makeAnnualResult(): AnnualSunAccessResult {
 
 function makeArgs(overrides: Partial<UseAnnualRoofSimulationArgs> = {}): UseAnnualRoofSimulationArgs {
   return {
+    cacheRevision: 1,
     roofs: [
       {
         roofId: 'roof-1',
@@ -200,6 +202,40 @@ describe('useAnnualRoofSimulation', () => {
     expect(hook.get().state).toBe('READY')
 
     hook.unmount()
+    vi.useRealTimers()
+  })
+
+  it('recomputes when cache revision changes', async () => {
+    vi.useFakeTimers()
+    const options: AnnualSimulationOptions = {
+      year: 2028,
+      dateStartIso: '2028-01-01',
+      dateEndIso: '2028-12-31',
+      sampleWindowDays: 5,
+      stepMinutes: 30,
+      halfYearMirror: true,
+    }
+    const firstHook = renderHook(makeArgs({ cacheRevision: 1 }))
+
+    await act(async () => {
+      const first = firstHook.get().runSimulation(options)
+      await vi.runAllTimersAsync()
+      await first
+    })
+    firstHook.unmount()
+
+    const secondHook = renderHook(makeArgs({ cacheRevision: 2 }))
+
+    await act(async () => {
+      const second = secondHook.get().runSimulation(options)
+      await vi.runAllTimersAsync()
+      await second
+    })
+
+    expect(mockPrepareShadingScene).toHaveBeenCalledTimes(2)
+    expect(mockComputeAnnualSunAccessBatched).toHaveBeenCalledTimes(2)
+
+    secondHook.unmount()
     vi.useRealTimers()
   })
 
