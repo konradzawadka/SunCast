@@ -149,6 +149,34 @@ function computeVertexAngleDeg(
 }
 
 describe('useMapInteractions', () => {
+  it('adds the first draft point instead of closing drawing', () => {
+    const { handlers, map } = createMapMock()
+    const onMapClick = vi.fn()
+    const onCloseDrawing = vi.fn()
+    const refs = createRefs({
+      drawingRef: { current: true },
+      drawDraftRef: { current: [] as Array<[number, number]> },
+      onMapClickRef: { current: onMapClick },
+      onCloseDrawingRef: { current: onCloseDrawing },
+    })
+    const mapRef = createRef<unknown>()
+    mapRef.current = map
+
+    const hook = renderInteractions({ mapRef, mapLoaded: true, refs })
+
+    act(() => {
+      handlers.click({
+        point: { x: 40, y: 50 },
+        lngLat: { lng: 0.00105, lat: 0.0003 },
+        originalEvent: new MouseEvent('click'),
+      })
+    })
+
+    expect(onMapClick).toHaveBeenCalledTimes(1)
+    expect(onCloseDrawing).not.toHaveBeenCalled()
+    hook.unmount()
+  })
+
   it('snaps draft click to a right angle when near 90 degrees', () => {
     const { handlers, map } = createMapMock()
     const onMapClick = vi.fn()
