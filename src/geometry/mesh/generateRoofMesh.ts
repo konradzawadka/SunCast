@@ -3,7 +3,7 @@ import type { FootprintPolygon, RoofMeshData } from '../../types/geometry'
 import { projectPointsToLocalMeters } from '../projection/localMeters'
 
 const EDGE_LENGTH_EPSILON_M = 0.005
-const TRIANGLE_AREA_EPSILON_M2 = 1e-8
+const TRIANGLE_AREA_EPSILON_M2 = 1e-5
 
 interface SanitizedVertex {
   lon: number
