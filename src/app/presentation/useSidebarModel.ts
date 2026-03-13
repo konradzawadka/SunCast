@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import type { ImportedFootprintConfigEntry } from '../../types/presentation-contracts'
 import { clampPitchAdjustmentPercent, type SunCastSidebarModel } from './presentationModel.types'
 import type { SunCastPresentationState } from './useSunCastPresentationState'
 
@@ -24,7 +23,6 @@ export function useSidebarModel(state: SunCastPresentationState): SunCastSidebar
       activeConstraints: projectDocument.activeConstraints,
       selectedVertexIndex: editorSession.safeSelectedVertexIndex,
       selectedEdgeIndex: editorSession.safeSelectedEdgeIndex,
-      footprintEntries: projectDocument.footprintEntries,
       interactionError: editorSession.interactionError,
       solverError: analysis.diagnostics.solverError,
       footprintErrors: state.activeFootprintErrors,
@@ -137,18 +135,6 @@ export function useSidebarModel(state: SunCastPresentationState): SunCastSidebar
       onConstraintLimitExceeded: editorSession.setConstraintLimitError,
       onStartTutorial: () => editorSession.tutorialStartRef.current(),
       onShareProject: state.onShareProject,
-      onDevSelectVertex: (vertexIndex) => {
-        editorSession.selectVertex(vertexIndex)
-      },
-      onDevSelectEdge: (edgeIndex) => {
-        editorSession.selectEdge(edgeIndex)
-      },
-      onDevClearSelection: () => {
-        editorSession.clearSelectionState()
-      },
-      onDevImportEntries: (entries: ImportedFootprintConfigEntry[]) => {
-        state.onImportDevEntries(entries)
-      },
     }),
     [analysis, editorSession, projectDocument, state, store],
   )

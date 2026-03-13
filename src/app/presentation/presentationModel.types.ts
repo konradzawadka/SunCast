@@ -10,7 +10,6 @@ import type {
   SolverWarning,
 } from '../../types/geometry'
 import type {
-  ImportedFootprintConfigEntry,
   PlaceSearchResult,
   SelectedRoofSunInput,
 } from '../../types/presentation-contracts'
@@ -55,10 +54,6 @@ export interface SunCastSidebarModel {
   activeConstraints: FaceConstraints
   selectedVertexIndex: number | null
   selectedEdgeIndex: number | null
-  footprintEntries: Array<{
-    footprint: FootprintPolygon
-    constraints: FaceConstraints
-  }>
   interactionError: string | null
   solverError: string | null
   footprintErrors: string[]
@@ -97,10 +92,6 @@ export interface SunCastSidebarModel {
   onConstraintLimitExceeded: () => void
   onStartTutorial: () => void
   onShareProject: () => Promise<void>
-  onDevSelectVertex: (vertexIndex: number) => void
-  onDevSelectEdge: (edgeIndex: number) => void
-  onDevClearSelection: () => void
-  onDevImportEntries: (entries: ImportedFootprintConfigEntry[]) => void
 }
 
 export interface SunCastCanvasModel {

@@ -38,6 +38,18 @@ Derived-only artifacts (never canonical persisted source data):
 - `src/app/features/sun-tools/*`: projection, charts, weather forecast integration.
 - `src/app/features/place-search/*`: Photon provider + search panel.
 
+### Boundary Remediation Status (2026-03-13)
+
+Recent violations had accumulated in:
+- `src/app/features/map-editor/MapView/hooks/useMapInstance.ts` (hook + adapter + rendering concerns mixed).
+- `src/app/presentation/useSunCastPresentationState.ts` (presentation composition + cross-cutting side-effect flows mixed).
+
+Target and active remediation direction:
+- map bootstrapping and external runtime creation live under `src/adapters/map-runtime/*`.
+- rendering lifecycle/custom map layers live under `src/rendering/*`.
+- presentation state remains a thin composition root delegating behavior into focused hooks/services.
+- import direction is codified in `docs/runtime_dependency_matrix.md` and enforced by lint restrictions.
+
 ## Main Data Flows
 
 1. Map/UI interactions emit edit intents and update the composed store (document + editor session).

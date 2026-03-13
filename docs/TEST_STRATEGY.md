@@ -34,7 +34,7 @@
    - Over-constrained setup shows warning path.
 5. Rendering
    - Roof mesh overlay appears after solving.
-   - Debug overlay toggles and visibly changes output.
+   - Mesh visibility toggle visibly changes output in orbit mode.
 6. Persistence
    - Save project.
    - Reload project and verify identical derived geometry outcomes.

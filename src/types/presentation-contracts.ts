@@ -1,11 +1,5 @@
 import type { RoofPlane } from './geometry'
 
-export interface ImportedFootprintConfigEntry {
-  footprintId: string
-  polygon: Array<[number, number]>
-  vertexHeights: Array<{ vertexIndex: number; heightM: number }>
-}
-
 export interface PlaceSearchResult {
   id: string
   label: string

@@ -75,25 +75,8 @@ async function expectTutorialSpotlightAround(page: Page, target: Locator) {
   expect(matchesTarget).toBeTruthy()
 }
 
-async function selectVertexViaDebug(page: Page, vertexIndex: number) {
-  const didSelect = await page.evaluate((index: number) => {
-    type DebugApi = {
-      selectVertex?: (vertexIndex: number) => void
-    }
-    const debugApi = (window as Window & { suncastDebug?: DebugApi }).suncastDebug
-    if (!debugApi?.selectVertex) {
-      return false
-    }
-    debugApi.selectVertex(index)
-    return true
-  }, vertexIndex)
-  if (!didSelect) {
-    throw new Error('suncastDebug.selectVertex is unavailable')
-  }
-}
-
 async function ensureHeightGizmoVisible(page: Page) {
-  await selectVertexViaDebug(page, 0)
+  await clickMapRatios(page, [[0.30, 0.20]])
   await expect(page.locator('.height-gizmo-button')).toHaveCount(2)
 }
 

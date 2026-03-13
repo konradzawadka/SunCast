@@ -76,7 +76,7 @@ export function MapOverlayControls({
       </button>
       <button
         type="button"
-        className="map-debug-toggle"
+        className="map-mesh-toggle"
         onClick={onToggleMeshesVisible}
         title="Show/hide roof and obstacle meshes in orbit mode."
         data-testid="mesh-visibility-toggle-button"
@@ -121,7 +121,7 @@ export function MapOverlayControls({
         </div>
       )}
       {orbitEnabled && meshCount === 0 && !isDrawing && (
-        <div className="map-debug-hint" data-testid="map-debug-hint">
+        <div className="map-mesh-hint" data-testid="map-mesh-hint">
           Meshes need a solved roof or at least one obstacle.
         </div>
       )}

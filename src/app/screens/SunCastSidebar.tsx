@@ -5,7 +5,6 @@ import { ObstaclePanel } from '../features/sidebar/ObstaclePanel'
 import { RoofEditor } from '../features/sidebar/RoofEditor'
 import { StatusPanel } from '../features/sidebar/StatusPanel'
 import type { SunCastSidebarModel } from '../presentation/presentationModel.types'
-import { DevTools } from '../features/debug/DevTools'
 import { TutorialIntroOverlay } from '../features/tutorial/Tutorial/TutorialIntroOverlay'
 
 interface SunCastSidebarProps {
@@ -54,17 +53,6 @@ export function SunCastSidebar({ model }: SunCastSidebarProps) {
         />
       )}
       <p className="subtitle">Draw your roof and get short-term and long-term production forecasts.</p>
-
-      {import.meta.env.DEV && (
-        <DevTools
-          footprintEntries={model.footprintEntries}
-          onSelectVertex={model.onDevSelectVertex}
-          onSelectEdge={model.onDevSelectEdge}
-          onClearSelection={model.onDevClearSelection}
-          onImportEntries={model.onDevImportEntries}
-        />
-      )}
-
       <DrawTools
         editMode={model.editMode}
         isDrawingRoof={model.isDrawingRoof}

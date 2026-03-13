@@ -115,7 +115,7 @@ test('sets 3 vertex heights and rotates orbit map', async ({ page }, testInfo) =
   const meshToggle = page.getByTestId('mesh-visibility-toggle-button')
   await expect(meshToggle).toHaveText(/Hide meshes|Show meshes/i)
   const meshesOnScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
-  await testInfo.attach('debug-on-map', {
+  await testInfo.attach('meshes-on-map', {
     body: meshesOnScreenshot,
     contentType: 'image/png',
   })
@@ -127,20 +127,20 @@ test('sets 3 vertex heights and rotates orbit map', async ({ page }, testInfo) =
   await page.waitForTimeout(250)
 
   const meshesOffScreenshot = await page.getByTestId('map-canvas').screenshot({ animations: 'disabled' })
-  await testInfo.attach('debug-off-map', {
+  await testInfo.attach('meshes-off-map', {
     body: meshesOffScreenshot,
     contentType: 'image/png',
   })
 })
 
 test('draw finish should not depend on map network becoming idle', async ({ page }) => {
-  await page.route('**/__roof-debug-keepalive__', async (route) => {
+  await page.route('**/__roof-keepalive__', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1_500))
     await route.fulfill({ status: 204, body: '' })
   })
   await page.addInitScript(() => {
     window.setInterval(() => {
-      void fetch('/__roof-debug-keepalive__', { cache: 'no-store' }).catch(() => undefined)
+      void fetch('/__roof-keepalive__', { cache: 'no-store' }).catch(() => undefined)
     }, 100)
   })
 

@@ -3,7 +3,7 @@ import type { RoofMeshData } from '../../../../types/geometry'
 import { buildProjectedRoofFeatures } from './projectedRoofFeatures'
 
 describe('buildProjectedRoofFeatures', () => {
-  it('returns no features because projected debug geometry is rendered by the 3D overlay layer', () => {
+  it('returns no features because projected geometry is rendered by the 3D overlay layer', () => {
     const mesh: RoofMeshData = {
       vertices: [
         { lon: -73.99, lat: 40.73, z: 2 },

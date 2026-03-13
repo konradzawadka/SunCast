@@ -1,159 +1,180 @@
 # Runtime Boundaries
 
-This document defines current runtime boundaries and allowed responsibilities by module group.
+This document defines the active runtime/module boundaries for the current codebase.
 
-## Geometry Domain (`src/geometry/*`)
+If this document conflicts with higher-priority contracts, follow:
+1. `docs/VENDOR_EXECUTION_GUARDRAILS.md`
+2. `docs/ARCHITECTURE.md`
+3. `docs/DECISIONS.md`
 
-Canonical inputs:
-- footprint polygons
-- roof constraints (vertex/edge heights)
-- obstacle inputs (kind/shape/height)
-- shading/simulation parameters
+## Invariants
+
+- Canonical persisted state is project inputs only: footprints, constraints, obstacles, and explicit sun/shading settings.
+- Derived artifacts are never canonical persisted truth: solved planes, meshes, heatmap/grid outputs, map/view state, rendering buffers.
+- Geometry computations run in local metric coordinates, not raw lon/lat.
+
+## Module Boundaries
+
+### `src/geometry/*` (Domain, pure deterministic)
 
 Responsibilities:
-- coordinate projection (`lon/lat -> local meters`)
+- coordinate conversion (`lon/lat <-> local meters`)
 - footprint/constraint validation
 - plane solving and roof metrics
-- roof/obstacle mesh input generation
-- shading scene preparation and shade/annual simulation math
-- sun/irradiance calculations
+- roof/obstacle mesh generation inputs
+- sun and shading math
 
 Rules:
 - pure functions only
 - deterministic output for equal input
 - no React/DOM/MapLibre/browser-storage dependencies
-- no persistence or side effects
+- no side effects or persistence
 
-## App State (`src/state/project-store/*`)
-
-Responsibilities:
-- reducer transitions and command-style updates
-- active/selected footprint and obstacle management
-- canonical project-document projection for app composition (`useProjectDocument`)
-- persistence load/save
-- payload sanitization/migration
-- share payload mapping/import/export
-
-Rules:
-- state is authoritative for canonical inputs
-- persisted data includes footprints/constraints/obstacles/sun+shading settings
-- persisted data must not store derived meshes, solved planes, or shading output grids
-- unknown future schema versions are rejected (fail-closed)
-
-## App Session (`src/app/editor-session/*`)
+### `src/state/project-store/*` (Canonical project document + persistence)
 
 Responsibilities:
-- ephemeral editing/session state (selection, drafts, interaction guards)
-- reducer/selectors for transient editor controls
-- UI-safe editing commands delegated from presentation orchestration
+- reducer-driven project transitions and commands
+- canonical state projection (`useProjectDocument`)
+- storage schema migration/sanitization
+- share payload import/export mapping
 
 Rules:
-- session state is never canonical persisted project data
-- session modules may depend on `state/project-store` contracts and app hooks
-- session modules must not implement geometry solver/shading math
+- authoritative owner of canonical project inputs
+- fail-closed on unknown future schema versions
+- must not persist solved geometry/meshes/heatmap outputs
+- may compose `src/app/editor-session/*` reducer state, but session fields remain non-canonical
 
-## App Analysis (`src/app/analysis/*`)
+### `src/app/editor-session/*` (Ephemeral editing state)
 
 Responsibilities:
-- derive solved roofs, selected roof sun inputs, shading roofs, and diagnostics
-- orchestrate live shading and annual simulation hooks
-- provide typed derived outputs for presentation and adapters
+- transient selection/draft/interaction state
+- editor interaction guards and reducer/selectors
 
 Rules:
-- analysis outputs are derived artifacts only (non-canonical)
-- analysis must consume geometry/state contracts and avoid UI rendering concerns
-- expensive compute orchestration must preserve responsiveness
+- never persisted as canonical project data
+- may consume project document contracts
+- must not implement geometry solving/shading math
 
-## App Presentation (`src/app/presentation/*`)
+### `src/app/analysis/*` (Derived computation boundary)
 
 Responsibilities:
-- compose sidebar/canvas/tutorial models from state/session/analysis outputs
-- map typed action handlers to screen-facing model contracts
-- coordinate error/reporting side effects at composition layer
+- derive solved roofs and metrics from canonical inputs
+- derive shading inputs/outputs and annual simulation data
+- expose diagnostics and typed derived outputs
 
 Rules:
-- presentation must not implement geometry solver/shading math
-- presentation consumes app/state contracts and returns UI-ready models
-- presentation is the boundary before screen components
+- outputs are derived-only artifacts
+- consume geometry + project/session contracts
+- no UI rendering concerns
 
-## App Orchestration (`src/app/hooks/*`)
+### `src/app/presentation/*` (Screen-facing model composition)
 
 Responsibilities:
-- compose sidebar/canvas/tutorial/sun-tools view models
-- coordinate selection/editing flows
-- connect store state with geometry computations
-- schedule progressive shading and annual simulation runs
+- compose presentation state from document/session/analysis
+- build typed sidebar/canvas/tutorial models
+- bridge action handlers for screens
 
 Rules:
-- orchestration may call geometry/store/rendering adapters
-- orchestration must not implement solver/shading math directly
-- long-running work must preserve UI responsiveness (throttling, yielding, caching policies)
+- no domain solver/shading math
+- no map engine lifecycle ownership
+- boundary immediately before screen components
 
-## Map Interaction (`src/app/features/map-editor/*`)
+### `src/app/hooks/*` (Application orchestration)
 
 Responsibilities:
-- MapLibre lifecycle and source synchronization
-- drawing/editing input capture for roof + obstacle flows
-- hit-testing, drag interactions, orbit controls
-- map overlay state wiring
+- feature orchestration hooks (shading, annual simulation, sharing, keyboard, selection)
+- compatibility composition (`useSunCastController` over presentation hooks)
 
 Rules:
-- interaction routing is target-based (`roof` / `obstacle`), not mode-gated solver duplication
-- map layer emits intents/events only
-- map interaction must not implement geometry solver logic
+- orchestrate flows; do not become business-logic sink
+- no direct geometry algorithm implementations
+- long-running work must preserve UI responsiveness
 
-## Adapter Bridges (`src/adapters/*`)
+### `src/app/features/map-editor/*` (Map interaction + rendering integration)
 
 Responsibilities:
-- encapsulate framework/platform bridge code for map and rendering integration
-- synchronize typed geometry/render contracts into external runtimes (MapLibre/Three/Workers)
-- keep side-effectful lifecycle wiring out of presentation models
+- MapLibre lifecycle and interaction handling
+- drawing/edit intents and hit-testing
+- camera/navigation/orbit integration
+- custom 3D layer rendering integration under `MapView/roof-layer/*`
 
 Rules:
-- adapters are thin lifecycle/sync/event-emission layers only
-- no domain/solver business rules in adapters
-- adapter inputs must be narrow, typed contracts from `src/app/presentation/*` or `src/app/analysis/*`
+- emit/edit intents; do not redefine domain/solver rules
+- geometry consumed from derived outputs only
+- rendering math here is adapter/render plumbing, not canonical geometry solving
 
-## Rendering (`src/rendering/*`)
+### `src/app/features/sun-tools/*` (Sun-tools UI + external forecast integration)
 
 Responsibilities:
-- consume solved/derived geometry and render it
-- transform mesh/shading outputs into GPU-friendly buffers
-- handle worker-assisted overlay preparation where applicable
+- sun/date controls and projection UI
+- annual simulation UI orchestration
+- forecast fetch/presentation
 
 Rules:
-- rendering must not redefine business/solver rules
-- renderer instances should be shared per WebGL context when layering custom 3D layers
-- worker paths must report typed errors and avoid silent fallback behavior
+- external data is advisory, non-canonical
+- external failures must surface as typed app errors
 
-## Sun Tools And Forecast (`src/app/features/sun-tools/*`)
+### `src/app/features/place-search/*` (Search integration)
 
 Responsibilities:
-- user-facing sun projection controls
-- annual sun-access simulation UI orchestration
-- weather forecast fetch and PV-estimate presentation
+- Photon search request/response integration
+- search panel UI and typed mapping
 
 Rules:
-- forecast output is advisory and non-authoritative for geometry
-- simulation outputs are derived (non-canonical) artifacts
-- external/API failures must be surfaced explicitly as typed app errors
+- provider failures must degrade gracefully
+- search results must not mutate canonical geometry implicitly
 
-## Tutorial (`src/app/features/tutorial/*`)
+### `src/app/features/tutorial/*` (Onboarding)
 
 Responsibilities:
-- onboarding overlays and progression
-- milestone tracking from app state/events
+- tutorial progression and overlay behavior
 
 Rules:
-- tutorial reads app state
-- tutorial does not own geometry logic or persistence
+- consumes app state/events
+- does not own geometry or persistence behavior
 
-## Debug / Development-Only
+### `src/shared/*` (Cross-cutting contracts/utilities)
 
-Development-only tools:
-- `DevTools` panel
-- `window.suncastDebug` API
-- roof debug simulation
+Responsibilities:
+- typed app error/result primitives
+- observability/reporting bridges
+- deterministic utility helpers (`shareCodec`, cache key builders)
 
-Rule:
-- all debug paths must be gated by `import.meta.env.DEV`
+Rules:
+- no feature-specific UI ownership
+- utility behavior must remain deterministic where used for cache/storage/share contracts
+
+### `src/types/*` (Shared type contracts)
+
+Responsibilities:
+- domain/app/presentation type contracts
+
+Rules:
+- type-only/shared contracts, no runtime side effects
+
+## Dependency Direction (Allowed)
+
+Preferred direction:
+
+`geometry -> state/analysis -> presentation/hooks -> features/screens`
+
+Allowed imports by boundary:
+- `geometry/*` -> `types/*` only (plus internal geometry modules)
+- `state/project-store/*` -> `types/*`, `geometry/*`, `shared/*`, `app/editor-session/*`
+- `app/editor-session/*` -> `types/*`, `state/project-store/*` contracts
+- `app/analysis/*` -> `geometry/*`, `types/*`, `state/project-store/*`, `shared/*`, selected `app/hooks/*`
+- `app/presentation/*` -> `app/analysis/*`, `state/project-store/*`, `app/editor-session/*`, `app/hooks/*`, `shared/*`
+- `app/hooks/*` -> `state/project-store/*`, `geometry/*`, `shared/*`, feature contracts
+- `app/features/*` + `app/screens/*` -> presentation/hook contracts + platform libraries
+
+Disallowed:
+- `geometry/*` importing React/MapLibre/browser APIs
+- UI/features/screens implementing solver or shading algorithms
+- rendering/map layers becoming canonical state owners
+- persistence/share storing derived meshes/planes/heatmap grids
+
+## Runtime Notes
+
+- Browser-only/platform APIs (`window`, clipboard, share, compression streams, MapLibre, WebGL workers) stay in app/features/hooks layers.
+- Worker boundaries must return typed errors and fail closed for unsupported/failed worker operations.
+- Schema/share migrations must reject unknown future versions to prevent silent corruption.

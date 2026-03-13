@@ -627,7 +627,7 @@ button:disabled {
   margin-top: 4px;
 }
 
-.map-debug-toggle {
+.map-mesh-toggle {
   position: absolute;
   top: 14px;
   left: 232px;
@@ -690,29 +690,7 @@ button:disabled {
   pointer-events: none;
 }
 
-.map-debug-hud {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  z-index: 12;
-  border: 1px solid #50745a;
-  background: rgba(14, 24, 18, 0.92);
-  color: #d4f6dc;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 0.78rem;
-  min-width: 240px;
-}
-
-.map-debug-hud p {
-  margin: 0 0 4px;
-}
-
-.map-debug-hud p:last-child {
-  margin-bottom: 0;
-}
-
-.map-debug-hint {
+.map-mesh-hint {
   position: absolute;
   left: 14px;
   top: 56px;

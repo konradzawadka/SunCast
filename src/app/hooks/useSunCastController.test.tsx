@@ -66,7 +66,6 @@ vi.mock('../features/sun-tools/useSunProjectionPanel', () => ({
 }))
 
 vi.mock('./useKeyboardShortcuts', () => ({ useKeyboardShortcuts: vi.fn() }))
-vi.mock('../features/debug/useRoofDebugSimulation', () => ({ useRoofDebugSimulation: vi.fn() }))
 vi.mock('./useRoofShading', () => ({
   useRoofShading: (...args: unknown[]) => mockUseRoofShading(...args),
 }))

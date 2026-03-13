@@ -11,7 +11,6 @@ vi.mock('../components/FootprintPanel', () => ({ FootprintPanel: () => <div data
 vi.mock('../features/sidebar/RoofEditor', () => ({ RoofEditor: () => <div data-testid="roof-editor-panel" /> }))
 vi.mock('../features/sidebar/ObstaclePanel', () => ({ ObstaclePanel: () => <div data-testid="obstacle-panel" /> }))
 vi.mock('../features/sidebar/StatusPanel', () => ({ StatusPanel: () => null }))
-vi.mock('../features/debug/DevTools', () => ({ DevTools: () => null }))
 
 function makeModel(overrides: Partial<SunCastSidebarModel> = {}): SunCastSidebarModel {
   return {
@@ -30,7 +29,6 @@ function makeModel(overrides: Partial<SunCastSidebarModel> = {}): SunCastSidebar
     activeConstraints: { vertexHeights: [] },
     selectedVertexIndex: null,
     selectedEdgeIndex: null,
-    footprintEntries: [],
     interactionError: null,
     solverError: null,
     footprintErrors: [],
@@ -69,10 +67,6 @@ function makeModel(overrides: Partial<SunCastSidebarModel> = {}): SunCastSidebar
     onConstraintLimitExceeded: vi.fn(),
     onStartTutorial: vi.fn(),
     onShareProject: vi.fn(async () => {}),
-    onDevSelectVertex: vi.fn(),
-    onDevSelectEdge: vi.fn(),
-    onDevClearSelection: vi.fn(),
-    onDevImportEntries: vi.fn(),
     ...overrides,
   }
 }

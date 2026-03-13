@@ -38,7 +38,6 @@ vi.mock('../hooks/useMapNavigationTarget', () => ({
 }))
 
 vi.mock('../hooks/useKeyboardShortcuts', () => ({ useKeyboardShortcuts: vi.fn() }))
-vi.mock('../features/debug/useRoofDebugSimulation', () => ({ useRoofDebugSimulation: vi.fn() }))
 vi.mock('../../geometry/solver/validation', () => ({ validateFootprint: vi.fn(() => []) }))
 vi.mock('../../geometry/mesh/generateObstacleMesh', () => ({
   generateObstacleMeshResult: vi.fn(() => ({ ok: true, value: { id: 'mesh' } })),
