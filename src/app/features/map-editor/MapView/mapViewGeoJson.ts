@@ -1,12 +1,16 @@
 import maplibregl from 'maplibre-gl'
+import { obstacleShapeToPolygon } from '../../../../geometry/obstacles/obstacleModels'
 import { projectPointsToLocalMeters } from '../../../../geometry/projection/localMeters'
-import type { FootprintPolygon, VertexHeightConstraint } from '../../../../types/geometry'
+import type { FootprintPolygon, ObstacleStateEntry, VertexHeightConstraint } from '../../../../types/geometry'
 import {
+  ACTIVE_OBSTACLE_EDGES_SOURCE_ID,
+  ACTIVE_OBSTACLE_VERTICES_SOURCE_ID,
   ACTIVE_EDGE_LABELS_SOURCE_ID,
   ACTIVE_EDGES_SOURCE_ID,
   ACTIVE_VERTICES_SOURCE_ID,
   DRAFT_SOURCE_ID,
   FOOTPRINTS_SOURCE_ID,
+  OBSTACLES_SOURCE_ID,
 } from './mapViewConstants'
 
 export type MapFeature = GeoJSON.Feature<GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon>
@@ -15,6 +19,9 @@ export interface InteractiveMapState {
   footprints: FootprintPolygon[]
   activeFootprint: FootprintPolygon | null
   selectedFootprintIds: string[]
+  obstacles: ObstacleStateEntry[]
+  activeObstacle: ObstacleStateEntry | null
+  selectedObstacleIds: string[]
   vertexConstraints: VertexHeightConstraint[]
   selectedVertexIndex: number | null
   selectedEdgeIndex: number | null
@@ -77,6 +84,32 @@ export function toFootprintFeatures(
       geometry: {
         type: 'Polygon',
         coordinates: [toRing(footprint.vertices)],
+      },
+    }))
+}
+
+// Purpose: Encapsulates to obstacle features behavior in one reusable function.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+export function toObstacleFeatures(
+  obstacles: ObstacleStateEntry[],
+  activeObstacleId: string | null,
+  selectedObstacleIds: Set<string>,
+): GeoJSON.Feature<GeoJSON.Polygon>[] {
+  return obstacles
+    .map((obstacle) => ({ obstacle, polygon: obstacleShapeToPolygon(obstacle.shape) }))
+    .filter(({ polygon }) => polygon.length >= 3)
+    .map(({ obstacle, polygon }) => ({
+      type: 'Feature',
+      properties: {
+        obstacleId: obstacle.id,
+        kind: obstacle.kind,
+        active: activeObstacleId === obstacle.id ? 1 : 0,
+        selected: selectedObstacleIds.has(obstacle.id) ? 1 : 0,
+        heightM: obstacle.heightAboveGroundM,
+      },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [toRing(polygon)],
       },
     }))
 }
@@ -159,10 +192,48 @@ export function toEdgeHeightLabelFeatures(
   return features
 }
 
+// Purpose: Encapsulates to obstacle vertex source features behavior in one reusable function.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+export function toObstacleVertexSourceFeatures(
+  obstacle: ObstacleStateEntry | null,
+): GeoJSON.Feature<GeoJSON.Point>[] {
+  if (!obstacle || obstacle.shape.type !== 'polygon-prism') {
+    return []
+  }
+
+  return obstacle.shape.polygon.map((vertex, idx) => ({
+    type: 'Feature',
+    properties: {
+      obstacleId: obstacle.id,
+      vertexIndex: idx,
+    },
+    geometry: {
+      type: 'Point',
+      coordinates: vertex,
+    },
+  }))
+}
+
+// Purpose: Encapsulates to obstacle edge source features behavior in one reusable function.
+// Why: Improves readability by isolating a single responsibility behind a named function.
+export function toObstacleEdgeSourceFeatures(
+  obstacle: ObstacleStateEntry | null,
+): GeoJSON.Feature<GeoJSON.LineString>[] {
+  if (!obstacle || obstacle.shape.type !== 'polygon-prism') {
+    return []
+  }
+
+  return toEdgeSourceFeatures(obstacle.shape.polygon, null)
+}
+
 export function buildDraftFeatures(drawDraft: Array<[number, number]>, draftPreviewPoint: [number, number] | null): MapFeature[] {
   const features: MapFeature[] = []
   const draftLineCoords =
     draftPreviewPoint && drawDraft.length >= 1 ? [...drawDraft, draftPreviewPoint] : drawDraft
+  const selectedDraftPointIndex =
+    draftPreviewPoint === null
+      ? -1
+      : drawDraft.findIndex((point) => point[0] === draftPreviewPoint[0] && point[1] === draftPreviewPoint[1])
 
   if (draftLineCoords.length >= 2) {
     features.push({
@@ -175,10 +246,12 @@ export function buildDraftFeatures(drawDraft: Array<[number, number]>, draftPrev
     })
   }
 
-  for (const point of drawDraft) {
+  for (const [idx, point] of drawDraft.entries()) {
     features.push({
       type: 'Feature',
-      properties: {},
+      properties: {
+        selected: idx === selectedDraftPointIndex ? 1 : 0,
+      },
       geometry: {
         type: 'Point',
         coordinates: point,
@@ -191,11 +264,22 @@ export function buildDraftFeatures(drawDraft: Array<[number, number]>, draftPrev
 
 export function syncInteractiveSources(map: maplibregl.Map, state: InteractiveMapState): void {
   const footprintsSource = map.getSource(FOOTPRINTS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+  const obstaclesSource = map.getSource(OBSTACLES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
   const edgeSource = map.getSource(ACTIVE_EDGES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
   const vertexSource = map.getSource(ACTIVE_VERTICES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
   const edgeLabelSource = map.getSource(ACTIVE_EDGE_LABELS_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+  const obstacleVertexSource = map.getSource(ACTIVE_OBSTACLE_VERTICES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+  const obstacleEdgeSource = map.getSource(ACTIVE_OBSTACLE_EDGES_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
 
-  if (!footprintsSource || !edgeSource || !vertexSource || !edgeLabelSource) {
+  if (
+    !footprintsSource ||
+    !obstaclesSource ||
+    !edgeSource ||
+    !vertexSource ||
+    !edgeLabelSource ||
+    !obstacleVertexSource ||
+    !obstacleEdgeSource
+  ) {
     return
   }
 
@@ -204,6 +288,18 @@ export function syncInteractiveSources(map: maplibregl.Map, state: InteractiveMa
   footprintsSource.setData({
     type: 'FeatureCollection',
     features: toFootprintFeatures(state.footprints, state.activeFootprint?.id ?? null, new Set(state.selectedFootprintIds)),
+  })
+  obstaclesSource.setData({
+    type: 'FeatureCollection',
+    features: toObstacleFeatures(state.obstacles, state.activeObstacle?.id ?? null, new Set(state.selectedObstacleIds)),
+  })
+  obstacleVertexSource.setData({
+    type: 'FeatureCollection',
+    features: toObstacleVertexSourceFeatures(state.activeObstacle),
+  })
+  obstacleEdgeSource.setData({
+    type: 'FeatureCollection',
+    features: toObstacleEdgeSourceFeatures(state.activeObstacle),
   })
 
   if (!state.activeFootprint || state.activeFootprint.vertices.length < 3) {

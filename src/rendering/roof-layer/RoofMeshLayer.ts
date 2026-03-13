@@ -1,15 +1,35 @@
 import maplibregl from 'maplibre-gl'
 import * as THREE from 'three'
-import type { RoofMeshData } from '../../types/geometry'
-import { buildRoofWorldGeometry, type RoofWorldMeshGeometry } from './roofWorldGeometry'
+import type { WorldMeshGeometry } from './meshWorldGeometry'
+import { resolveLayerAnchor, toLayerRelativePoint, type LayerAnchor } from './layerRebasing'
 import { acquireSharedThreeRenderer, releaseSharedThreeRenderer } from './sharedThreeRenderer'
 
-const RENDER_EPSILON_M = 0.05
-const TOP_COLOR_HEX = 0xff6155
-const WALL_COLOR_HEX = 0xe63a33
-const BASE_COLOR_HEX = 0xbf3a35
+const RENDER_EPSILON_M = 0.0002
+const DEFAULT_TOP_COLOR_HEX = 0xff6155
+const DEFAULT_WALL_COLOR_HEX = 0xe63a33
+const DEFAULT_BASE_COLOR_HEX = 0xbf3a35
 
-function createTopGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry | null {
+export interface MeshLayerStyle {
+  topColorHex: number
+  wallColorHex: number
+  baseColorHex: number
+  topOpacity?: number
+  wallOpacity?: number
+  baseOpacity?: number
+  depthTest?: boolean
+  depthWrite?: boolean
+  side?: THREE.Side
+}
+
+export interface MeshLayerParts {
+  top: boolean
+  walls: boolean
+  base: boolean
+}
+
+// Purpose: Builds top geometry from the provided inputs.
+// Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
+function createTopGeometry(world: WorldMeshGeometry, layerAnchor: LayerAnchor): THREE.BufferGeometry | null {
   if (world.topVertices.length < 3 || world.triangleIndices.length < 3) {
     return null
   }
@@ -17,7 +37,7 @@ function createTopGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry |
   const zEpsilon = RENDER_EPSILON_M * world.unitsPerMeter
   const positions = new Float32Array(world.topVertices.length * 3)
   for (let i = 0; i < world.topVertices.length; i += 1) {
-    const vertex = world.topVertices[i]
+    const vertex = toLayerRelativePoint(world.anchorX, world.anchorY, world.topVertices[i], layerAnchor)
     const baseIndex = i * 3
     positions[baseIndex] = vertex.x
     positions[baseIndex + 1] = vertex.y
@@ -31,7 +51,9 @@ function createTopGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry |
   return geometry
 }
 
-function createWallGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry | null {
+// Purpose: Builds wall geometry from the provided inputs.
+// Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
+function createWallGeometry(world: WorldMeshGeometry, layerAnchor: LayerAnchor): THREE.BufferGeometry | null {
   if (world.topVertices.length < 3 || world.baseVertices.length < 3) {
     return null
   }
@@ -40,10 +62,15 @@ function createWallGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry 
   const vertexCount = world.topVertices.length
 
   for (let i = 0; i < vertexCount; i += 1) {
-    const topCurrent = world.topVertices[i]
-    const topNext = world.topVertices[(i + 1) % vertexCount]
-    const baseCurrent = world.baseVertices[i]
-    const baseNext = world.baseVertices[(i + 1) % vertexCount]
+    const topCurrent = toLayerRelativePoint(world.anchorX, world.anchorY, world.topVertices[i], layerAnchor)
+    const topNext = toLayerRelativePoint(world.anchorX, world.anchorY, world.topVertices[(i + 1) % vertexCount], layerAnchor)
+    const baseCurrent = toLayerRelativePoint(world.anchorX, world.anchorY, world.baseVertices[i], layerAnchor)
+    const baseNext = toLayerRelativePoint(
+      world.anchorX,
+      world.anchorY,
+      world.baseVertices[(i + 1) % vertexCount],
+      layerAnchor,
+    )
 
     wallPositions.push(topCurrent.x, topCurrent.y, topCurrent.z)
     wallPositions.push(topNext.x, topNext.y, topNext.z)
@@ -64,14 +91,16 @@ function createWallGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry 
   return geometry
 }
 
-function createBaseGeometry(world: RoofWorldMeshGeometry): THREE.BufferGeometry | null {
+// Purpose: Builds base geometry from the provided inputs.
+// Why: Centralizes object/geometry construction and avoids duplicated assembly logic.
+function createBaseGeometry(world: WorldMeshGeometry, layerAnchor: LayerAnchor): THREE.BufferGeometry | null {
   if (world.baseVertices.length < 3 || world.triangleIndices.length < 3) {
     return null
   }
 
   const positions = new Float32Array(world.baseVertices.length * 3)
   for (let i = 0; i < world.baseVertices.length; i += 1) {
-    const vertex = world.baseVertices[i]
+    const vertex = toLayerRelativePoint(world.anchorX, world.anchorY, world.baseVertices[i], layerAnchor)
     const baseIndex = i * 3
     positions[baseIndex] = vertex.x
     positions[baseIndex + 1] = vertex.y
@@ -110,14 +139,14 @@ function disposeGroupGeometry(group: THREE.Group): void {
   }
 }
 
-export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
+export class WorldMeshLayer implements maplibregl.CustomLayerInterface {
   id: string
   type = 'custom' as const
   renderingMode = '3d' as const
 
   private map: maplibregl.Map | null = null
   private gl: (WebGLRenderingContext | WebGL2RenderingContext) | null = null
-  private meshes: RoofMeshData[] = []
+  private geometry: WorldMeshGeometry[] = []
   private zExaggeration = 1
   private scene: THREE.Scene | null = null
   private camera: THREE.Camera | null = null
@@ -127,9 +156,33 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
   private wallMaterial: THREE.MeshBasicMaterial | null = null
   private baseMaterial: THREE.MeshBasicMaterial | null = null
   private visible = true
+  private layerAnchor: LayerAnchor = { x: 0, y: 0 }
+  private layerRebaseMatrix = new THREE.Matrix4()
+  private style: MeshLayerStyle
+  private parts: MeshLayerParts
 
-  constructor(id = 'roof-mesh-layer') {
+  constructor(
+    id = 'world-mesh-layer',
+    style: Partial<MeshLayerStyle> = {},
+    parts: Partial<MeshLayerParts> = {},
+  ) {
     this.id = id
+    this.style = {
+      topColorHex: style.topColorHex ?? DEFAULT_TOP_COLOR_HEX,
+      wallColorHex: style.wallColorHex ?? DEFAULT_WALL_COLOR_HEX,
+      baseColorHex: style.baseColorHex ?? DEFAULT_BASE_COLOR_HEX,
+      topOpacity: style.topOpacity ?? 1,
+      wallOpacity: style.wallOpacity ?? 1,
+      baseOpacity: style.baseOpacity ?? 1,
+      depthTest: style.depthTest ?? true,
+      depthWrite: style.depthWrite ?? true,
+      side: style.side ?? THREE.DoubleSide,
+    }
+    this.parts = {
+      top: parts.top ?? true,
+      walls: parts.walls ?? false,
+      base: parts.base ?? false,
+    }
   }
 
   onAdd(map: maplibregl.Map, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -139,31 +192,35 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
     this.scene = new THREE.Scene()
     this.camera = new THREE.Camera()
     this.roofGroup = new THREE.Group()
+    this.roofGroup.scale.set(1, 1, this.zExaggeration)
     this.scene.add(this.roofGroup)
 
     this.topMaterial = new THREE.MeshBasicMaterial({
-      color: TOP_COLOR_HEX,
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
+      color: this.style.topColorHex,
+      transparent: (this.style.topOpacity ?? 1) < 1,
+      opacity: this.style.topOpacity ?? 1,
+      side: this.style.side,
+      depthTest: this.style.depthTest,
+      depthWrite: this.style.depthWrite,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
     })
     this.wallMaterial = new THREE.MeshBasicMaterial({
-      color: WALL_COLOR_HEX,
-      transparent: true,
-      opacity: 0.92,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
+      color: this.style.wallColorHex,
+      transparent: (this.style.wallOpacity ?? 1) < 1,
+      opacity: this.style.wallOpacity ?? 1,
+      side: this.style.side,
+      depthTest: this.style.depthTest,
+      depthWrite: this.style.depthWrite,
     })
     this.baseMaterial = new THREE.MeshBasicMaterial({
-      color: BASE_COLOR_HEX,
-      transparent: true,
-      opacity: 0.45,
-      side: THREE.DoubleSide,
-      depthTest: false,
-      depthWrite: false,
+      color: this.style.baseColorHex,
+      transparent: (this.style.baseOpacity ?? 1) < 1,
+      opacity: this.style.baseOpacity ?? 1,
+      side: this.style.side,
+      depthTest: this.style.depthTest,
+      depthWrite: this.style.depthWrite,
     })
 
     this.renderer = acquireSharedThreeRenderer(map, gl)
@@ -193,14 +250,15 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
     this.map = null
   }
 
-  setMeshes(meshes: RoofMeshData[]): void {
-    this.meshes = meshes
+  setGeometry(geometry: WorldMeshGeometry[]): void {
+    this.geometry = geometry
     this.rebuildGeometry()
   }
 
   setZExaggeration(zExaggeration: number): void {
     this.zExaggeration = Math.max(0.1, zExaggeration)
-    this.rebuildGeometry()
+    this.roofGroup?.scale.set(1, 1, this.zExaggeration)
+    this.map?.triggerRepaint()
   }
 
   setVisible(visible: boolean): void {
@@ -215,6 +273,8 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
 
     const projectionMatrix = options.defaultProjectionData?.mainMatrix ?? options.modelViewProjectionMatrix
     this.camera.projectionMatrix.fromArray(projectionMatrix as ArrayLike<number>)
+    this.layerRebaseMatrix.makeTranslation(this.layerAnchor.x, this.layerAnchor.y, 0)
+    this.camera.projectionMatrix.multiply(this.layerRebaseMatrix)
     this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert()
     this.camera.matrixWorld.identity()
     this.camera.matrixWorldInverse.identity()
@@ -233,30 +293,29 @@ export class RoofMeshLayer implements maplibregl.CustomLayerInterface {
     }
 
     disposeGroupGeometry(this.roofGroup)
+    this.layerAnchor = resolveLayerAnchor(this.geometry)
 
-    for (const mesh of this.meshes) {
-      const worldGeometry = buildRoofWorldGeometry(mesh, this.zExaggeration)
-      if (!worldGeometry) {
-        continue
-      }
-
-      const topGeometry = createTopGeometry(worldGeometry)
-      if (topGeometry) {
+    for (const worldGeometry of this.geometry) {
+      const topGeometry = this.parts.top ? createTopGeometry(worldGeometry, this.layerAnchor) : null
+      if (topGeometry && this.topMaterial) {
         const topMesh = new THREE.Mesh(topGeometry, this.topMaterial)
+        topMesh.position.set(0, 0, 0)
         topMesh.frustumCulled = false
         this.roofGroup.add(topMesh)
       }
 
-      const wallGeometry = createWallGeometry(worldGeometry)
-      if (wallGeometry) {
+      const wallGeometry = this.parts.walls ? createWallGeometry(worldGeometry, this.layerAnchor) : null
+      if (wallGeometry && this.wallMaterial) {
         const wallMesh = new THREE.Mesh(wallGeometry, this.wallMaterial)
+        wallMesh.position.set(0, 0, 0)
         wallMesh.frustumCulled = false
         this.roofGroup.add(wallMesh)
       }
 
-      const baseGeometry = createBaseGeometry(worldGeometry)
-      if (baseGeometry) {
+      const baseGeometry = this.parts.base ? createBaseGeometry(worldGeometry, this.layerAnchor) : null
+      if (baseGeometry && this.baseMaterial) {
         const baseMesh = new THREE.Mesh(baseGeometry, this.baseMaterial)
+        baseMesh.position.set(0, 0, 0)
         baseMesh.frustumCulled = false
         this.roofGroup.add(baseMesh)
       }

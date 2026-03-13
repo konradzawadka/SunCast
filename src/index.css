@@ -120,6 +120,96 @@ body {
   margin-bottom: 8px;
 }
 
+.annual-heatmap-canvas-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+  border: 1px solid #33454d;
+  border-radius: 8px;
+  background: #0f171b;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.annual-heatmap-canvas {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+  background: #0f171b;
+}
+
+.annual-heatmap-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  padding: 4px 7px;
+  border: 1px solid #3f565f;
+  border-radius: 5px;
+  background: rgba(6, 12, 15, 0.9);
+  color: #d5e2e7;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.annual-heatmap-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 8, 10, 0.7);
+}
+
+.annual-heatmap-overlay-panel {
+  width: 95vw;
+  height: 95vh;
+  border: 1px solid #3b4f57;
+  border-radius: 10px;
+  background: #0f171b;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+}
+
+.annual-heatmap-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.annual-heatmap-overlay-header h4 {
+  margin: 0;
+}
+
+.annual-heatmap-overlay-canvas-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.annual-heatmap-overlay-canvas {
+  width: 100%;
+  height: 100%;
+  flex: 0 0 auto;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  border: 1px solid #30424a;
+  border-radius: 6px;
+  background: #0f171b;
+}
+
 .panel-hint {
   margin: 0;
   color: #acc0c8;
@@ -198,12 +288,49 @@ body {
 }
 
 input,
+select,
 button {
   border: 1px solid #41565f;
   background: #111819;
   color: #ecf1f4;
   padding: 7px 10px;
   border-radius: 6px;
+}
+
+.draw-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.draw-mode-button {
+  border-color: #3f525a;
+}
+
+.draw-mode-button-active {
+  border-color: #79d27a;
+  background: rgba(121, 210, 122, 0.16);
+}
+
+.sun-cast-editor-tabs-shell {
+  margin-bottom: 20px;
+}
+
+.sun-cast-editor-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sun-cast-editor-tab {
+  border-color: #3f525a;
+}
+
+.sun-cast-editor-tab-active {
+  border-color: #4ccde2;
+  background: rgba(76, 205, 226, 0.16);
 }
 
 .ui-input {
@@ -340,6 +467,22 @@ button:disabled {
 
 .sun-overlay-content .panel-section:last-child {
   margin-bottom: 0;
+}
+
+.sun-overlay-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sun-overlay-tab {
+  border-color: #3f525a;
+}
+
+.sun-overlay-tab-active {
+  border-color: #4ccde2;
+  background: rgba(76, 205, 226, 0.16);
 }
 
 .map-root {

@@ -5,6 +5,7 @@ import {
   syncInteractiveSources,
   toEdgeHeightLabelFeatures,
   toFootprintFeatures,
+  toObstacleFeatures,
   toRing,
 } from './mapViewGeoJson'
 
@@ -40,6 +41,34 @@ describe('mapViewGeoJson', () => {
     })
   })
 
+  it('builds obstacle features with selection and active flags', () => {
+    const features = toObstacleFeatures(
+      [
+        {
+          id: 'ob-1',
+          kind: 'tree',
+          shape: {
+            type: 'tree',
+            center: [1.5, 1.5],
+            crownRadiusM: 1.2,
+            trunkRadiusM: 0.3,
+          },
+          heightAboveGroundM: 8,
+        },
+      ],
+      'ob-1',
+      new Set(['ob-1']),
+    )
+
+    expect(features).toHaveLength(1)
+    expect(features[0].properties).toMatchObject({
+      obstacleId: 'ob-1',
+      active: 1,
+      selected: 1,
+      heightM: 8,
+    })
+  })
+
   it('builds line and point features for draft geometry', () => {
     const features = buildDraftFeatures([
       [1, 1],
@@ -66,6 +95,21 @@ describe('mapViewGeoJson', () => {
       [2, 1],
       [2, 2],
     ])
+  })
+
+  it('marks snapped draft point as selected', () => {
+    const features = buildDraftFeatures(
+      [
+        [1, 1],
+        [2, 1],
+        [2, 2],
+      ],
+      [1, 1],
+    )
+
+    const pointFeatures = features.filter((feature) => feature.geometry.type === 'Point')
+    expect(pointFeatures).toHaveLength(3)
+    expect(pointFeatures.map((feature) => feature.properties?.selected)).toEqual([1, 0, 0])
   })
 
   it('returns edge labels only for edges with equal endpoint heights', () => {
@@ -98,9 +142,12 @@ describe('mapViewGeoJson', () => {
       getSource(id: string) {
         if (
           id === 'footprints' ||
+          id === 'obstacles' ||
           id === 'active-footprint-edges' ||
           id === 'active-footprint-vertices' ||
-          id === 'active-footprint-edge-labels'
+          id === 'active-footprint-edge-labels' ||
+          id === 'active-obstacle-vertices' ||
+          id === 'active-obstacle-edges'
         ) {
           return source
         }
@@ -113,13 +160,16 @@ describe('mapViewGeoJson', () => {
       footprints: [{ id: 'f', vertices: [[1, 1], [2, 2], [2, 1]], kwp: 1 }],
       activeFootprint: null,
       selectedFootprintIds: [],
+      obstacles: [],
+      activeObstacle: null,
+      selectedObstacleIds: [],
       vertexConstraints,
       selectedVertexIndex: null,
       selectedEdgeIndex: null,
     })
 
-    expect(calls).toHaveLength(4)
-    expect(calls.slice(1)).toEqual([
+    expect(calls).toHaveLength(7)
+    expect(calls.slice(4)).toEqual([
       { type: 'FeatureCollection', features: [] },
       { type: 'FeatureCollection', features: [] },
       { type: 'FeatureCollection', features: [] },

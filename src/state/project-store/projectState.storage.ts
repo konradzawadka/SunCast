@@ -1,12 +1,38 @@
-import type { ProjectData, ProjectSunProjectionSettings } from '../../types/geometry'
+import type { ProjectData, ProjectSunProjectionSettings, ShadingSettings } from '../../types/geometry'
 import { fromStoredFootprint, toStoredFootprint } from './projectState.mappers'
 import { createProjectStoragePayload, migrateProjectStoragePayload } from './projectState.schema'
 import type { ProjectState } from './projectState.types'
 
 const STORAGE_KEY = 'suncast_project'
+const LEGACY_DEFAULT_SHADING_GRID_RESOLUTION_M = 0.5
+const CURRENT_DEFAULT_SHADING_GRID_RESOLUTION_M = 0.1
+const GRID_RESOLUTION_EPS = 1e-9
+
+// Purpose: Computes normalize stored obstacles deterministically from the provided input values.
+// Why: Keeps domain rules explicit, testable, and deterministic.
+function normalizeStoredObstacles(
+  obstacles: ProjectData['obstacles'] | undefined,
+): NonNullable<ProjectData['obstacles']> {
+  if (!obstacles) {
+    return {}
+  }
+
+  const entries = Object.values(obstacles).filter(
+    (obstacle): obstacle is NonNullable<ProjectData['obstacles']>[string] =>
+      Boolean(obstacle) &&
+      typeof obstacle.id === 'string' &&
+      (typeof obstacle.shape === 'object' ||
+        // backward compatibility for legacy payloads; reducer sanitize upgrades this
+        Array.isArray((obstacle as { polygon?: unknown }).polygon)) &&
+      Number.isFinite(obstacle.heightAboveGroundM),
+  )
+
+  return Object.fromEntries(entries.map((obstacle) => [obstacle.id, obstacle]))
+}
 
 export function readStorage(
   defaultSunProjection: ProjectSunProjectionSettings,
+  defaultShadingSettings: ShadingSettings,
   defaultFootprintKwp: number,
   currentSolverConfigVersion: string,
 ): ProjectState | null {
@@ -26,6 +52,13 @@ export function readStorage(
     const footprints = Object.fromEntries(
       entries.map((entry) => [entry.id, fromStoredFootprint(entry, defaultFootprintKwp)]),
     )
+    const obstacles = normalizeStoredObstacles(migrated.obstacles)
+    const hasSolverConfigMismatch = migrated.solverConfigVersion !== currentSolverConfigVersion
+    const persistedGridResolutionM = migrated.shadingSettings?.gridResolutionM
+    const shouldUpgradeLegacyGridResolution =
+      hasSolverConfigMismatch &&
+      Number.isFinite(persistedGridResolutionM) &&
+      Math.abs((persistedGridResolutionM ?? 0) - LEGACY_DEFAULT_SHADING_GRID_RESOLUTION_M) < GRID_RESOLUTION_EPS
 
     return {
       footprints,
@@ -33,10 +66,21 @@ export function readStorage(
       selectedFootprintIds: [],
       drawDraft: [],
       isDrawing: false,
+      obstacles,
+      activeObstacleId: migrated.activeObstacleId && obstacles[migrated.activeObstacleId] ? migrated.activeObstacleId : null,
+      selectedObstacleIds: [],
+      obstacleDrawDraft: [],
+      isDrawingObstacle: false,
       sunProjection: {
         enabled: migrated.sunProjection?.enabled ?? defaultSunProjection.enabled,
         datetimeIso: migrated.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
         dailyDateIso: migrated.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
+      },
+      shadingSettings: {
+        enabled: migrated.shadingSettings?.enabled ?? defaultShadingSettings.enabled,
+        gridResolutionM: shouldUpgradeLegacyGridResolution
+          ? CURRENT_DEFAULT_SHADING_GRID_RESOLUTION_M
+          : (migrated.shadingSettings?.gridResolutionM ?? defaultShadingSettings.gridResolutionM),
       },
     }
   } catch {
@@ -45,7 +89,10 @@ export function readStorage(
 }
 
 export function writeStorage(
-  state: Pick<ProjectState, 'footprints' | 'activeFootprintId' | 'sunProjection'>,
+  state: Pick<
+    ProjectState,
+    'footprints' | 'activeFootprintId' | 'obstacles' | 'activeObstacleId' | 'sunProjection' | 'shadingSettings'
+  >,
   currentSolverConfigVersion: string,
   defaultFootprintKwp: number,
 ): void {
@@ -56,8 +103,11 @@ export function writeStorage(
   const data: ProjectData = {
     footprints,
     activeFootprintId: state.activeFootprintId,
+    obstacles: state.obstacles,
+    activeObstacleId: state.activeObstacleId,
     solverConfigVersion: currentSolverConfigVersion,
     sunProjection: state.sunProjection,
+    shadingSettings: state.shadingSettings,
   }
 
   const payload = createProjectStoragePayload(data, currentSolverConfigVersion)

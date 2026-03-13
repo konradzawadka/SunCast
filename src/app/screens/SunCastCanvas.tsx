@@ -12,29 +12,43 @@ export function SunCastCanvas({ model }: SunCastCanvasProps) {
   return (
     <main className="sun-cast-canvas">
       <MapView
+        editMode={model.editMode}
         footprints={model.footprints}
         activeFootprint={model.activeFootprint}
         selectedFootprintIds={model.selectedFootprintIds}
-        drawDraft={model.drawDraft}
-        isDrawing={model.isDrawing}
+        drawDraftRoof={model.drawDraftRoof}
+        isDrawingRoof={model.isDrawingRoof}
+        obstacles={model.obstacles}
+        activeObstacle={model.activeObstacle}
+        selectedObstacleIds={model.selectedObstacleIds}
+        drawDraftObstacle={model.drawDraftObstacle}
+        isDrawingObstacle={model.isDrawingObstacle}
         orbitEnabled={model.orbitEnabled}
         onToggleOrbit={model.onToggleOrbit}
         sunProjectionResult={model.sunProjectionResult}
+        shadingEnabled={model.shadingEnabled}
+        shadingHeatmapFeatures={model.shadingHeatmapFeatures}
+        shadingComputeState={model.shadingComputeState}
         roofMeshes={model.roofMeshes}
+        obstacleMeshes={model.obstacleMeshes}
         vertexConstraints={model.vertexConstraints}
         selectedVertexIndex={model.selectedVertexIndex}
         selectedEdgeIndex={model.selectedEdgeIndex}
         onSelectVertex={model.onSelectVertex}
         onSelectEdge={model.onSelectEdge}
         onSelectFootprint={model.onSelectFootprint}
+        onSelectObstacle={model.onSelectObstacle}
         onClearSelection={model.onClearSelection}
         onMoveVertex={model.onMoveVertex}
         onMoveEdge={model.onMoveEdge}
+        onMoveObstacleVertex={model.onMoveObstacleVertex}
         onMoveRejected={model.onMoveRejected}
         onAdjustHeight={model.onAdjustHeight}
         showSolveHint={model.showSolveHint}
         onMapClick={model.onMapClick}
         onCloseDrawing={model.onCloseDrawing}
+        onObstacleMapClick={model.onObstacleMapClick}
+        onCloseObstacleDrawing={model.onCloseObstacleDrawing}
         onBearingChange={model.onBearingChange}
         onPitchChange={model.onPitchChange}
         onGeometryDragStateChange={model.onGeometryDragStateChange}
@@ -49,7 +63,8 @@ export function SunCastCanvas({ model }: SunCastCanvasProps) {
         selectedRoofs={model.selectedRoofInputs}
         onDatetimeInputChange={model.onSunDatetimeInputChange}
         productionComputationEnabled={model.productionComputationEnabled}
-        expanded={model.hasSolvedActiveRoof && !model.isDrawing}
+        annualSunAccess={model.annualSunAccess}
+        expanded={model.hasSolvedActiveRoof && !model.isDrawingRoof && !model.isDrawingObstacle}
       >
         {model.hasSolvedActiveRoof ? (
           <>

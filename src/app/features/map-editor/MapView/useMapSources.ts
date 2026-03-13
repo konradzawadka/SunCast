@@ -1,16 +1,23 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { FootprintPolygon, VertexHeightConstraint } from '../../../../types/geometry'
+import type { FootprintPolygon, ObstacleStateEntry, VertexHeightConstraint } from '../../../../types/geometry'
 import { AUTO_FOCUS_MAX_ZOOM } from './mapViewConstants'
 import { syncDraftSource, syncInteractiveSources, toBounds } from './mapViewGeoJson'
 
 interface UseMapSourcesArgs {
   mapRef: RefObject<maplibregl.Map | null>
   mapLoaded: boolean
+  editMode: 'roof' | 'obstacle'
   footprints: FootprintPolygon[]
   activeFootprint: FootprintPolygon | null
   selectedFootprintIds: string[]
-  drawDraft: Array<[number, number]>
+  obstacles: ObstacleStateEntry[]
+  activeObstacle: ObstacleStateEntry | null
+  selectedObstacleIds: string[]
+  drawDraftRoof: Array<[number, number]>
+  drawDraftObstacle: Array<[number, number]>
+  isDrawingRoof: boolean
+  isDrawingObstacle: boolean
   draftPreviewPoint: [number, number] | null
   vertexConstraints: VertexHeightConstraint[]
   selectedVertexIndex: number | null
@@ -20,10 +27,17 @@ interface UseMapSourcesArgs {
 export function useMapSources({
   mapRef,
   mapLoaded,
+  editMode,
   footprints,
   activeFootprint,
   selectedFootprintIds,
-  drawDraft,
+  obstacles,
+  activeObstacle,
+  selectedObstacleIds,
+  drawDraftRoof,
+  drawDraftObstacle,
+  isDrawingRoof,
+  isDrawingObstacle,
   draftPreviewPoint,
   vertexConstraints,
   selectedVertexIndex,
@@ -45,17 +59,23 @@ export function useMapSources({
       footprints,
       activeFootprint,
       selectedFootprintIds,
+      obstacles,
+      activeObstacle,
+      selectedObstacleIds,
       vertexConstraints,
       selectedVertexIndex,
       selectedEdgeIndex,
     })
   }, [
     activeFootprint,
+    activeObstacle,
     footprints,
+    obstacles,
     mapLoaded,
     mapRef,
     selectedEdgeIndex,
     selectedFootprintIds,
+    selectedObstacleIds,
     selectedVertexIndex,
     vertexConstraints,
   ])
@@ -70,8 +90,22 @@ export function useMapSources({
       return
     }
 
-    syncDraftSource(map, drawDraft, draftPreviewPoint)
-  }, [draftPreviewPoint, drawDraft, mapLoaded, mapRef])
+    const draft =
+      editMode === 'obstacle'
+        ? (isDrawingObstacle ? drawDraftObstacle : [])
+        : (isDrawingRoof ? drawDraftRoof : [])
+    const previewPoint = draft.length >= 1 ? draftPreviewPoint : null
+    syncDraftSource(map, draft, previewPoint)
+  }, [
+    draftPreviewPoint,
+    drawDraftObstacle,
+    drawDraftRoof,
+    editMode,
+    isDrawingObstacle,
+    isDrawingRoof,
+    mapLoaded,
+    mapRef,
+  ])
 
   useEffect(() => {
     if (!mapLoaded || hasAppliedInitialFootprintFocusRef.current) {

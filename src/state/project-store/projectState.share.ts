@@ -1,9 +1,15 @@
-import type { ProjectSunProjectionSettings, StoredFootprint } from '../../types/geometry'
+import type {
+  ObstacleKind,
+  ObstacleShape,
+  ProjectSunProjectionSettings,
+  ShadingSettings,
+  StoredFootprint,
+} from '../../types/geometry'
 import { fromStoredFootprint } from './projectState.mappers'
 import { sanitizeLoadedState } from './projectState.sanitize'
 import type { ProjectState } from './projectState.types'
 
-const CURRENT_SHARE_SCHEMA_VERSION = 2
+const CURRENT_SHARE_SCHEMA_VERSION = 3
 
 export interface SharedFootprintPayload {
   id: string
@@ -35,14 +41,68 @@ export interface SharedProjectPayloadV2 {
   }
 }
 
-export type SharedProjectPayload = SharedProjectPayloadV2
+export interface SharedObstaclePayload {
+  id: string
+  kind: ObstacleKind
+  shape: ObstacleShape
+  heightAboveGroundM: number
+  label?: string
+}
+
+export interface SharedProjectPayloadV3 {
+  schemaVersion: 3
+  footprints: SharedFootprintPayload[]
+  activeFootprintId: string | null
+  obstacles: SharedObstaclePayload[]
+  activeObstacleId: string | null
+  sunProjection?: {
+    enabled: boolean
+    datetimeIso: string | null
+    dailyDateIso: string | null
+  }
+}
+
+export type SharedProjectPayload = SharedProjectPayloadV3
+
+function isLngLatPoint(value: unknown): value is [number, number] {
+  return Array.isArray(value) && value.length === 2 && Number.isFinite(value[0]) && Number.isFinite(value[1])
+}
+
+function isObstacleKind(value: unknown): value is ObstacleKind {
+  return value === 'building' || value === 'tree' || value === 'pole' || value === 'custom'
+}
+
+function isObstacleShape(value: unknown): value is ObstacleShape {
+  if (!isRecord(value) || typeof value.type !== 'string') {
+    return false
+  }
+
+  if (value.type === 'polygon-prism') {
+    if (!Array.isArray(value.polygon) || value.polygon.length < 3) {
+      return false
+    }
+    return value.polygon.every((point) => isLngLatPoint(point))
+  }
+
+  if (value.type === 'cylinder') {
+    return isLngLatPoint(value.center) && Number.isFinite(value.radiusM)
+  }
+
+  if (value.type === 'tree') {
+    return (
+      isLngLatPoint(value.center) && Number.isFinite(value.crownRadiusM) && Number.isFinite(value.trunkRadiusM)
+    )
+  }
+
+  return false
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
 export function buildSharePayload(
-  state: Pick<ProjectState, 'footprints' | 'activeFootprintId' | 'sunProjection'>,
+  state: Pick<ProjectState, 'footprints' | 'activeFootprintId' | 'obstacles' | 'activeObstacleId' | 'sunProjection'>,
 ): SharedProjectPayload {
   return {
     schemaVersion: CURRENT_SHARE_SCHEMA_VERSION,
@@ -61,6 +121,8 @@ export function buildSharePayload(
       }
     }),
     activeFootprintId: state.activeFootprintId,
+    obstacles: Object.values(state.obstacles),
+    activeObstacleId: state.activeObstacleId,
     sunProjection: state.sunProjection,
   }
 }
@@ -76,6 +138,12 @@ function hasValidCommonShape(value: Record<string, unknown>): boolean {
 
   const activeFootprintId = value.activeFootprintId
   if (activeFootprintId !== null && typeof activeFootprintId !== 'string') {
+    return false
+  }
+  if (value.obstacles !== undefined && !Array.isArray(value.obstacles)) {
+    return false
+  }
+  if (value.activeObstacleId !== undefined && value.activeObstacleId !== null && typeof value.activeObstacleId !== 'string') {
     return false
   }
 
@@ -128,16 +196,45 @@ function hasValidCommonShape(value: Record<string, unknown>): boolean {
     }
   }
 
+  if (Array.isArray(value.obstacles)) {
+    for (const obstacle of value.obstacles) {
+      if (!isRecord(obstacle)) {
+        return false
+      }
+      if (typeof obstacle.id !== 'string' || !isObstacleKind(obstacle.kind)) {
+        return false
+      }
+      if (!isObstacleShape(obstacle.shape) || !Number.isFinite(obstacle.heightAboveGroundM)) {
+        return false
+      }
+      if (obstacle.label !== undefined && typeof obstacle.label !== 'string') {
+        return false
+      }
+    }
+  }
+
   return true
 }
 
-function migrateSharePayload(value: unknown): SharedProjectPayloadV2 | null {
+function migrateSharePayload(value: unknown): SharedProjectPayloadV3 | null {
   if (!isRecord(value) || !hasValidCommonShape(value)) {
     return null
   }
 
   if (value.schemaVersion === CURRENT_SHARE_SCHEMA_VERSION) {
-    return value as unknown as SharedProjectPayloadV2
+    return value as unknown as SharedProjectPayloadV3
+  }
+
+  if (value.schemaVersion === 2) {
+    const v2 = value as unknown as SharedProjectPayloadV2
+    return {
+      schemaVersion: CURRENT_SHARE_SCHEMA_VERSION,
+      footprints: v2.footprints,
+      activeFootprintId: v2.activeFootprintId,
+      obstacles: [],
+      activeObstacleId: null,
+      sunProjection: v2.sunProjection,
+    }
   }
 
   if (value.version === 1) {
@@ -146,6 +243,8 @@ function migrateSharePayload(value: unknown): SharedProjectPayloadV2 | null {
       schemaVersion: CURRENT_SHARE_SCHEMA_VERSION,
       footprints: legacy.footprints,
       activeFootprintId: legacy.activeFootprintId,
+      obstacles: [],
+      activeObstacleId: null,
       sunProjection: legacy.sunProjection,
     }
   }
@@ -161,6 +260,7 @@ export function deserializeSharePayload(
   raw: string,
   defaultSunProjection: ProjectSunProjectionSettings,
   defaultFootprintKwp: number,
+  defaultShadingSettings: ShadingSettings,
 ): ProjectState {
   const parsed: unknown = JSON.parse(raw)
   const migrated = migrateSharePayload(parsed)
@@ -187,12 +287,18 @@ export function deserializeSharePayload(
     selectedFootprintIds: migrated.activeFootprintId ? [migrated.activeFootprintId] : [],
     drawDraft: [],
     isDrawing: false,
+    obstacles: Object.fromEntries(migrated.obstacles.map((obstacle) => [obstacle.id, obstacle])),
+    activeObstacleId: migrated.activeObstacleId,
+    selectedObstacleIds: migrated.activeObstacleId ? [migrated.activeObstacleId] : [],
+    obstacleDrawDraft: [],
+    isDrawingObstacle: false,
     sunProjection: {
       enabled: migrated.sunProjection?.enabled ?? defaultSunProjection.enabled,
       datetimeIso: migrated.sunProjection?.datetimeIso ?? defaultSunProjection.datetimeIso,
       dailyDateIso: migrated.sunProjection?.dailyDateIso ?? defaultSunProjection.dailyDateIso,
     },
+    shadingSettings: defaultShadingSettings,
   }
 
-  return sanitizeLoadedState(loaded, defaultSunProjection, defaultFootprintKwp)
+  return sanitizeLoadedState(loaded, defaultSunProjection, defaultFootprintKwp, defaultShadingSettings)
 }

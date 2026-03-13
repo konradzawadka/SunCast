@@ -110,6 +110,41 @@ describe('projectStateReducer', () => {
     expect(state.footprints.a.pitchAdjustmentPercent).toBe(200)
   })
 
+  it('handles obstacle draw/edit/selection flow', () => {
+    let state = projectStateReducer(initialProjectState, { type: 'START_OBSTACLE_DRAW' })
+    state = projectStateReducer(state, { type: 'ADD_OBSTACLE_DRAFT_POINT', point: [1, 1] })
+    state = projectStateReducer(state, { type: 'ADD_OBSTACLE_DRAFT_POINT', point: [2, 1] })
+    state = projectStateReducer(state, { type: 'ADD_OBSTACLE_DRAFT_POINT', point: [2, 2] })
+    state = projectStateReducer(state, { type: 'COMMIT_OBSTACLE' })
+
+    const obstacleId = state.activeObstacleId
+    expect(obstacleId).toBeTruthy()
+    expect(state.isDrawingObstacle).toBe(false)
+    expect(state.selectedObstacleIds).toEqual([obstacleId])
+
+    state = projectStateReducer(state, {
+      type: 'SET_OBSTACLE_HEIGHT',
+      payload: { obstacleId: obstacleId ?? '', heightAboveGroundM: 12 },
+    })
+    state = projectStateReducer(state, {
+      type: 'SET_OBSTACLE_KIND',
+      payload: { obstacleId: obstacleId ?? '', kind: 'tree' },
+    })
+    state = projectStateReducer(state, {
+      type: 'MOVE_OBSTACLE_VERTEX',
+      payload: { obstacleId: obstacleId ?? '', vertexIndex: 1, point: [3, 1.5] },
+    })
+
+    expect(state.obstacles[obstacleId ?? ''].heightAboveGroundM).toBe(12)
+    expect(state.obstacles[obstacleId ?? ''].kind).toBe('tree')
+    expect(state.obstacles[obstacleId ?? ''].shape.type).toBe('tree')
+
+    state = projectStateReducer(state, { type: 'DELETE_OBSTACLE', obstacleId: obstacleId ?? '' })
+    expect(state.activeObstacleId).toBeNull()
+    expect(state.selectedObstacleIds).toEqual([])
+    expect(Object.keys(state.obstacles)).toHaveLength(0)
+  })
+
   it('sanitizes load payload', () => {
     const dirtyState: ProjectState = {
       ...initialProjectState,

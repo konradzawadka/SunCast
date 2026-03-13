@@ -1,23 +1,27 @@
 import type { FootprintPolygon } from '../../types/geometry'
 import { projectPointsToLocalMeters } from '../projection/localMeters'
 
-const COORD_EPS = 1e-12
-const EDGE_LENGTH_EPSILON_M = 0.01
+const SEGMENT_COLLINEARITY_EPSILON_M2 = 1e-6
+const EDGE_LENGTH_EPSILON_M = 0.005
 
 function segmentsIntersect(
-  a1: [number, number],
-  a2: [number, number],
-  b1: [number, number],
-  b2: [number, number],
+  a1: { x: number; y: number },
+  a2: { x: number; y: number },
+  b1: { x: number; y: number },
+  b2: { x: number; y: number },
 ): boolean {
-  const cross = (p: [number, number], q: [number, number], r: [number, number]) =>
-    (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
+  const cross = (
+    p: { x: number; y: number },
+    q: { x: number; y: number },
+    r: { x: number; y: number },
+  ) =>
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)
 
-  const onSegment = (p: [number, number], q: [number, number], r: [number, number]) =>
-    Math.min(p[0], r[0]) <= q[0] &&
-    q[0] <= Math.max(p[0], r[0]) &&
-    Math.min(p[1], r[1]) <= q[1] &&
-    q[1] <= Math.max(p[1], r[1])
+  const onSegment = (
+    p: { x: number; y: number },
+    q: { x: number; y: number },
+    r: { x: number; y: number },
+  ) => Math.min(p.x, r.x) <= q.x && q.x <= Math.max(p.x, r.x) && Math.min(p.y, r.y) <= q.y && q.y <= Math.max(p.y, r.y)
 
   const d1 = cross(a1, a2, b1)
   const d2 = cross(a1, a2, b2)
@@ -28,16 +32,16 @@ function segmentsIntersect(
     return true
   }
 
-  if (Math.abs(d1) < COORD_EPS && onSegment(a1, b1, a2)) {
+  if (Math.abs(d1) < SEGMENT_COLLINEARITY_EPSILON_M2 && onSegment(a1, b1, a2)) {
     return true
   }
-  if (Math.abs(d2) < COORD_EPS && onSegment(a1, b2, a2)) {
+  if (Math.abs(d2) < SEGMENT_COLLINEARITY_EPSILON_M2 && onSegment(a1, b2, a2)) {
     return true
   }
-  if (Math.abs(d3) < COORD_EPS && onSegment(b1, a1, b2)) {
+  if (Math.abs(d3) < SEGMENT_COLLINEARITY_EPSILON_M2 && onSegment(b1, a1, b2)) {
     return true
   }
-  if (Math.abs(d4) < COORD_EPS && onSegment(b1, a2, b2)) {
+  if (Math.abs(d4) < SEGMENT_COLLINEARITY_EPSILON_M2 && onSegment(b1, a2, b2)) {
     return true
   }
 
@@ -71,22 +75,22 @@ export function validateFootprint(footprint: FootprintPolygon | null): string[] 
     const dy = next.y - current.y
     const edgeLen = Math.sqrt(dx * dx + dy * dy)
     if (edgeLen < EDGE_LENGTH_EPSILON_M) {
-      errors.push('Roof polygon edges must be longer than 0.01 m')
+      errors.push('Roof polygon edges must be longer than 0.005 m')
       return errors
     }
   }
 
-  for (let i = 0; i < vertices.length; i += 1) {
-    const a1 = vertices[i]
-    const a2 = vertices[(i + 1) % vertices.length]
+  for (let i = 0; i < points2d.length; i += 1) {
+    const a1 = points2d[i]
+    const a2 = points2d[(i + 1) % points2d.length]
 
-    for (let j = i + 1; j < vertices.length; j += 1) {
-      if (Math.abs(i - j) <= 1 || (i === 0 && j === vertices.length - 1)) {
+    for (let j = i + 1; j < points2d.length; j += 1) {
+      if (Math.abs(i - j) <= 1 || (i === 0 && j === points2d.length - 1)) {
         continue
       }
 
-      const b1 = vertices[j]
-      const b2 = vertices[(j + 1) % vertices.length]
+      const b1 = points2d[j]
+      const b2 = points2d[(j + 1) % points2d.length]
 
       if (segmentsIntersect(a1, a2, b1, b2)) {
         errors.push('Roof polygon cannot self-intersect')

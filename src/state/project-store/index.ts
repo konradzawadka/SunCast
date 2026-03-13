@@ -5,6 +5,11 @@ export {
   getActiveFootprint,
   getActiveConstraints,
   getSelectedFootprintIds,
+  getSelectedFootprintEntries,
+  getShadingReadyFootprintEntries,
   getFootprintEntries,
   isFootprintSelected,
+  getObstacleEntries,
+  getActiveObstacle,
+  getSelectedObstacleEntries,
 } from './projectState.selectors'

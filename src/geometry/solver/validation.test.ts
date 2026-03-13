@@ -35,14 +35,14 @@ describe('validateFootprint', () => {
     expect(validateFootprint(roof)).toEqual(['Roof polygon must have at least 3 distinct vertices'])
   })
 
-  it('rejects polygons with a sub-centimeter edge in local meters', () => {
+  it('rejects polygons with a sub-5mm edge in local meters', () => {
     const roof = footprint('tiny-edge', [
       [ORIGIN_LON, ORIGIN_LAT],
       [ORIGIN_LON + 5e-8, ORIGIN_LAT],
       [ORIGIN_LON + 1e-4, ORIGIN_LAT + 1e-4],
     ])
 
-    expect(validateFootprint(roof)).toEqual(['Roof polygon edges must be longer than 0.01 m'])
+    expect(validateFootprint(roof)).toEqual(['Roof polygon edges must be longer than 0.005 m'])
   })
 
   it('accepts a realistic non-self-intersecting building footprint', () => {
