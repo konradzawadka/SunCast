@@ -3,6 +3,8 @@ import type { FootprintPolygon } from '../../types/geometry'
 import { buildLocalOrigin, localMetersToLonLat, projectPointsToLocalMeters } from '../projection/localMeters'
 import { generateRoofMesh } from './generateRoofMesh'
 
+const MIN_TRIANGLE_AREA_M2 = 1e-5
+
 function pointInPolygon(point: { x: number; y: number }, polygon: Array<{ x: number; y: number }>): boolean {
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
@@ -165,5 +167,30 @@ describe('generateRoofMesh', () => {
     for (const area of areas) {
       expect(area).toBeGreaterThanOrEqual(1e-5)
     }
+  })
+
+  it('drops triangles below minimum area threshold', () => {
+    const center: [number, number] = [20, 52]
+    const origin = buildLocalOrigin([center])
+    const localPolygon = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0.50001, y: 0.00001 },
+      { x: 0, y: 1 },
+    ]
+    const vertices: Array<[number, number]> = localPolygon.map((point) => localMetersToLonLat(origin, point))
+    const footprint: FootprintPolygon = {
+      id: 'minimum-area-filter',
+      vertices,
+      kwp: 1,
+    }
+
+    const mesh = generateRoofMesh(footprint, [1, 1, 1, 1, 1])
+    const areas = triangleAreasMeters2(
+      mesh.vertices.map((vertex) => [vertex.lon, vertex.lat]),
+      mesh.triangleIndices,
+    )
+    expect(Math.min(...areas)).toBeGreaterThanOrEqual(MIN_TRIANGLE_AREA_M2)
   })
 })
