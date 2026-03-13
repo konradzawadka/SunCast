@@ -5,15 +5,17 @@ import { useConstraintEditor } from './useConstraintEditor'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useRoofDebugSimulation } from '../features/debug/useRoofDebugSimulation'
 import { useSelectionState } from './useSelectionState'
-import { useSolvedRoofEntries } from './useSolvedRoofEntries'
 import { generateObstacleMeshResult } from '../../geometry/mesh/generateObstacleMesh'
 import { useSunProjectionPanel } from '../features/sun-tools/useSunProjectionPanel'
 import type { ImportedFootprintConfigEntry } from '../features/debug/DevTools'
 import { useShareProject } from './useShareProject'
 import { useMapNavigationTarget } from './useMapNavigationTarget'
-import { useSelectedRoofInputs } from './useSelectedRoofInputs'
-import { useRoofShading } from './useRoofShading'
-import { useAnnualRoofSimulation } from './useAnnualRoofSimulation'
+import { deriveSolvedRoofs } from '../../application/analysis/deriveSolvedRoofs'
+import { deriveSelectedRoofInputs } from '../../application/analysis/deriveSelectedRoofInputs'
+import { useLiveShading } from '../../application/analysis/useLiveShading'
+import { useAnnualSimulation } from '../../application/analysis/useAnnualSimulation'
+import { useDerivedShadingRoofs } from '../../application/analysis/deriveShadingRoofs'
+import { useDerivedHeatmapMode } from '../../application/analysis/deriveHeatmapMode'
 import {
   reportAppError,
   reportAppErrorCode,
@@ -103,7 +105,7 @@ export function useSunCastController(): {
   const footprints = useMemo(() => footprintEntries.map((entry) => entry.footprint), [footprintEntries])
   const activeFootprintErrors = validateFootprint(activeFootprint)
 
-  const solved = useSolvedRoofEntries(footprintEntries, state.activeFootprintId)
+  const solved = deriveSolvedRoofs(footprintEntries, state.activeFootprintId)
   const activeFootprintCentroid = computeFootprintCentroid(activeFootprint?.vertices ?? [])
   const activePitchAdjustmentPercent = activeFootprint
     ? clampPitchAdjustmentPercent(state.footprints[activeFootprint.id]?.pitchAdjustmentPercent ?? 0)
@@ -112,7 +114,7 @@ export function useSunCastController(): {
   const adjustedPitchDeg =
     basePitchDeg === null ? null : basePitchDeg * (1 + activePitchAdjustmentPercent / 100)
 
-  const selectedRoofInputs = useSelectedRoofInputs({
+  const selectedRoofInputs = deriveSelectedRoofInputs({
     selectedFootprintIds,
     footprintEntries: state.footprints,
     solvedEntries: solved.entries,
@@ -153,39 +155,12 @@ export function useSunCastController(): {
     }
   }, [obstacleMeshErrors])
 
-  const shadingRoofs = useMemo(() => {
-    const solvedByFootprintId = new Map(solved.entries.map((entry) => [entry.footprintId, entry]))
-    const roofIdsForShading =
-      selectedFootprintIds.length > 0
-        ? selectedFootprintIds
-        : state.activeFootprintId
-          ? [state.activeFootprintId]
-          : []
-
-    return roofIdsForShading
-      .map((footprintId) => {
-        const footprintEntry = state.footprints[footprintId]
-        const solvedEntry = solvedByFootprintId.get(footprintId)
-        if (!footprintEntry || !solvedEntry) {
-          return null
-        }
-
-        const polygon = footprintEntry.footprint.vertices
-        const vertexHeightsM = solvedEntry.solution.vertexHeightsM
-        if (polygon.length < 3 || polygon.length !== vertexHeightsM.length) {
-          return null
-        }
-
-        return {
-          roofId: footprintId,
-          polygon,
-          vertexHeightsM,
-        }
-      })
-      .filter((entry): entry is { roofId: string; polygon: Array<[number, number]>; vertexHeightsM: number[] } =>
-        Boolean(entry),
-      )
-  }, [selectedFootprintIds, solved.entries, state.activeFootprintId, state.footprints])
+  const shadingRoofs = useDerivedShadingRoofs({
+    selectedFootprintIds,
+    activeFootprintId: state.activeFootprintId,
+    footprintEntries: state.footprints,
+    solvedEntries: solved.entries,
+  })
 
   const {
     selectedVertexIndex,
@@ -260,7 +235,7 @@ export function useSunCastController(): {
     setSunProjectionDailyDateIso,
   })
 
-  const shadingResult = useRoofShading({
+  const shadingResult = useLiveShading({
     enabled: state.shadingSettings.enabled && sunProjection.enabled && hasValidSunDatetime && !isGeometryDragActive,
     roofs: shadingRoofs,
     obstacles,
@@ -269,7 +244,7 @@ export function useSunCastController(): {
     interactionActive: isGeometryDragActive,
   })
 
-  const annualSimulation = useAnnualRoofSimulation({
+  const annualSimulation = useAnnualSimulation({
     roofs: shadingRoofs,
     obstacles,
     gridResolutionM: state.shadingSettings.gridResolutionM,
@@ -278,22 +253,11 @@ export function useSunCastController(): {
   const [requestedHeatmapMode, setRequestedHeatmapMode] = useState<'live-shading' | 'annual-sun-access' | 'none'>(
     'live-shading',
   )
-  const activeHeatmapMode = useMemo(() => {
-    if (requestedHeatmapMode === 'annual-sun-access') {
-      return annualSimulation.state === 'READY'
-        ? ('annual-sun-access' as const)
-        : state.shadingSettings.enabled
-          ? ('live-shading' as const)
-          : ('none' as const)
-    }
-    if (requestedHeatmapMode === 'live-shading') {
-      return state.shadingSettings.enabled ? ('live-shading' as const) : ('none' as const)
-    }
-    if (annualSimulation.state === 'READY') {
-      return 'none'
-    }
-    return state.shadingSettings.enabled ? ('live-shading' as const) : ('none' as const)
-  }, [annualSimulation.state, requestedHeatmapMode, state.shadingSettings.enabled])
+  const activeHeatmapMode = useDerivedHeatmapMode({
+    requestedHeatmapMode,
+    annualSimulationState: annualSimulation.state,
+    shadingEnabled: state.shadingSettings.enabled,
+  })
 
   const annualHeatmapVisible =
     activeHeatmapMode === 'annual-sun-access' &&
@@ -352,9 +316,9 @@ export function useSunCastController(): {
 
   const { onShareProject } = useShareProject({
     footprints: state.footprints,
-    activeFootprintId: state.activeFootprintId,
+    activeFootprintId: null,
     obstacles: state.obstacles,
-    activeObstacleId: state.activeObstacleId,
+    activeObstacleId: null,
     sunProjection: state.sunProjection,
   })
 

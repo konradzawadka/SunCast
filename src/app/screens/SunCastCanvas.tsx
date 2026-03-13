@@ -2,7 +2,7 @@ import { MapView } from '../features/map-editor/MapView/MapView'
 import { SunDailyChartPanel } from '../features/sun-tools/SunDailyChartPanel'
 import { SunOverlayColumn } from '../features/sun-tools/SunOverlayColumn'
 import { SunProjectionStatus } from '../features/sun-tools/SunProjectionStatus'
-import type { SunCastCanvasModel } from '../hooks/useSunCastController'
+import type { SunCastCanvasModel } from '../../application/presentation/presentationModel.types'
 
 interface SunCastCanvasProps {
   model: SunCastCanvasModel

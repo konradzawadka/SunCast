@@ -22,6 +22,8 @@ import { deserializeSharePayloadResult } from './projectState.share'
 import { decodeSharePayloadResult } from '../../shared/utils/shareCodec'
 import { captureException, recordEvent } from '../../shared/observability/observability'
 import { createAppError, reportAppError } from '../../shared/errors'
+import { selectEditorSession } from '../../application/editor-session/editorSession.selectors'
+import { selectProjectDocument } from '../../domain/project-document/projectDocument.selectors'
 
 const SOLVER_CONFIG_VERSION = 'uc7'
 
@@ -107,14 +109,19 @@ export function useProjectStore() {
       return
     }
 
+    const projectDocument = {
+      footprints: state.footprints,
+      obstacles: state.obstacles,
+      sunProjection: state.sunProjection,
+      shadingSettings: state.shadingSettings,
+    }
+
     writeStorage(
       {
-        footprints: state.footprints,
-        activeFootprintId: state.activeFootprintId,
-        obstacles: state.obstacles,
-        activeObstacleId: state.activeObstacleId,
-        sunProjection: state.sunProjection,
-        shadingSettings: state.shadingSettings,
+        ...projectDocument,
+        // Active ids belong to editor session; keep persisted payload canonical.
+        activeFootprintId: null,
+        activeObstacleId: null,
       },
       SOLVER_CONFIG_VERSION,
       DEFAULT_FOOTPRINT_KWP,
@@ -130,9 +137,13 @@ export function useProjectStore() {
 
   return useMemo(() => {
     const activeFootprint = getActiveFootprint(state)
+    const projectDocument = selectProjectDocument(state)
+    const editorSession = selectEditorSession(state)
 
     return {
       state,
+      projectDocument,
+      editorSession,
       activeFootprint,
       activeConstraints: getActiveConstraints(state),
       selectedFootprintIds: getSelectedFootprintIds(state),

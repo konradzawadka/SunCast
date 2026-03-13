@@ -4,7 +4,7 @@ import { FootprintPanel } from '../components/FootprintPanel'
 import { ObstaclePanel } from '../components/ObstaclePanel'
 import { RoofEditor } from '../components/RoofEditor/RoofEditor'
 import { StatusPanel } from '../components/StatusPanel'
-import type { SunCastSidebarModel } from '../hooks/useSunCastController'
+import type { SunCastSidebarModel } from '../../application/presentation/presentationModel.types'
 import { DevTools } from '../features/debug/DevTools'
 import { TutorialIntroOverlay } from '../features/tutorial/Tutorial/TutorialIntroOverlay'
 

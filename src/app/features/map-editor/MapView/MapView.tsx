@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { FootprintPolygon, ObstacleStateEntry, RoofMeshData, VertexHeightConstraint } from '../../../../types/geometry'
-import type { SunProjectionResult } from '../../../../geometry/sun/sunProjection'
-import type { RoofShadingComputeState, ShadeHeatmapFeature } from '../../../hooks/useRoofShading'
 import { MapOverlayControls } from './MapOverlayControls'
 import { buildHashWithMapCenter } from './mapCenterFromHash'
 import { useLatest } from './useLatest'
@@ -9,105 +6,60 @@ import { useMapInstance } from './useMapInstance'
 import { useMapInteractions } from './useMapInteractions'
 import { useMapSources } from './useMapSources'
 import { useOrbitCamera } from './useOrbitCamera'
-import type { PlaceSearchResult } from '../../place-search/placeSearch.types'
 import { pointAtDistanceMeters } from './drawingAssist'
 import { buildObstacleLayerGeometry, buildRoofLayerGeometry } from '../../../../rendering/roof-layer/layerGeometryAdapters'
+import type { SunCastCanvasModel } from '../../../../application/presentation/presentationModel.types'
 
 interface MapViewProps {
-  editMode: 'roof' | 'obstacle'
-  footprints: FootprintPolygon[]
-  activeFootprint: FootprintPolygon | null
-  selectedFootprintIds: string[]
-  drawDraftRoof: Array<[number, number]>
-  isDrawingRoof: boolean
-  obstacles: ObstacleStateEntry[]
-  activeObstacle: ObstacleStateEntry | null
-  selectedObstacleIds: string[]
-  drawDraftObstacle: Array<[number, number]>
-  isDrawingObstacle: boolean
-  orbitEnabled: boolean
-  onToggleOrbit: () => void
-  sunProjectionResult: SunProjectionResult | null
-  shadingEnabled: boolean
-  shadingHeatmapFeatures: ShadeHeatmapFeature[]
-  shadingComputeState: RoofShadingComputeState
-  roofMeshes: RoofMeshData[]
-  obstacleMeshes: RoofMeshData[]
-  vertexConstraints: VertexHeightConstraint[]
-  selectedVertexIndex: number | null
-  selectedEdgeIndex: number | null
-  onSelectVertex: (vertexIndex: number) => void
-  onSelectEdge: (edgeIndex: number) => void
-  onSelectFootprint: (footprintId: string, multiSelect: boolean) => void
-  onSelectObstacle: (obstacleId: string, multiSelect: boolean) => void
-  onClearSelection: () => void
-  onMoveVertex: (vertexIndex: number, point: [number, number]) => boolean
-  onMoveEdge: (edgeIndex: number, delta: [number, number]) => boolean
-  onMoveObstacleVertex: (obstacleId: string, vertexIndex: number, point: [number, number]) => boolean
-  onMoveRejected: () => void
-  onAdjustHeight: (stepM: number) => void
-  showSolveHint: boolean
-  onMapClick: (point: [number, number]) => void
-  onCloseDrawing: () => void
-  onObstacleMapClick: (point: [number, number]) => void
-  onCloseObstacleDrawing: () => void
-  onBearingChange: (bearingDeg: number) => void
-  onPitchChange: (pitchDeg: number) => void
-  onGeometryDragStateChange: (dragging: boolean) => void
-  mapNavigationTarget: {
-    id: number
-    lon: number
-    lat: number
-  } | null
-  onPlaceSearchSelect: (result: PlaceSearchResult) => void
+  model: SunCastCanvasModel
   onInitialized?: () => void
 }
 
-export function MapView({
-  editMode,
-  footprints,
-  activeFootprint,
-  selectedFootprintIds,
-  drawDraftRoof,
-  isDrawingRoof,
-  obstacles,
-  activeObstacle,
-  selectedObstacleIds,
-  drawDraftObstacle,
-  isDrawingObstacle,
-  orbitEnabled,
-  onToggleOrbit,
-  sunProjectionResult,
-  shadingEnabled,
-  shadingHeatmapFeatures,
-  shadingComputeState,
-  roofMeshes,
-  obstacleMeshes,
-  vertexConstraints,
-  selectedVertexIndex,
-  selectedEdgeIndex,
-  onSelectVertex,
-  onSelectEdge,
-  onSelectFootprint,
-  onSelectObstacle,
-  onClearSelection,
-  onMoveVertex,
-  onMoveEdge,
-  onMoveObstacleVertex,
-  onMoveRejected,
-  onAdjustHeight,
-  showSolveHint,
-  onMapClick,
-  onCloseDrawing,
-  onObstacleMapClick,
-  onCloseObstacleDrawing,
-  onBearingChange,
-  onPitchChange,
-  onGeometryDragStateChange,
-  mapNavigationTarget,
-  onPlaceSearchSelect,
-  onInitialized,
-}: MapViewProps) {
+export function MapView({ model, onInitialized }: MapViewProps) {
+  const {
+    editMode,
+    footprints,
+    activeFootprint,
+    selectedFootprintIds,
+    drawDraftRoof,
+    isDrawingRoof,
+    obstacles,
+    activeObstacle,
+    selectedObstacleIds,
+    drawDraftObstacle,
+    isDrawingObstacle,
+    orbitEnabled,
+    onToggleOrbit,
+    sunProjectionResult,
+    shadingEnabled,
+    shadingHeatmapFeatures,
+    shadingComputeState,
+    roofMeshes,
+    obstacleMeshes,
+    vertexConstraints,
+    selectedVertexIndex,
+    selectedEdgeIndex,
+    onSelectVertex,
+    onSelectEdge,
+    onSelectFootprint,
+    onSelectObstacle,
+    onClearSelection,
+    onMoveVertex,
+    onMoveEdge,
+    onMoveObstacleVertex,
+    onMoveRejected,
+    onAdjustHeight,
+    showSolveHint,
+    onMapClick,
+    onCloseDrawing,
+    onObstacleMapClick,
+    onCloseObstacleDrawing,
+    onBearingChange,
+    onPitchChange,
+    onGeometryDragStateChange,
+    mapNavigationTarget,
+    onPlaceSearchSelect,
+  } = model
   const isDrawing = editMode === 'roof' ? isDrawingRoof : isDrawingObstacle
   const drawDraft = editMode === 'roof' ? drawDraftRoof : drawDraftObstacle
   const [meshesVisible, setMeshesVisible] = useState(true)

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { TutorialOverlay } from './Tutorial/TutorialOverlay'
-import type { SunCastTutorialModel } from '../../hooks/useSunCastController'
+import type { SunCastTutorialModel } from '../../../application/presentation/presentationModel.types'
 import { useTutorial } from './useTutorial'
 
 const TUTORIAL_STEPS = [
