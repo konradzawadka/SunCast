@@ -356,7 +356,7 @@ export function createMapInteractionHandlers({
         isSnapDisabled(event),
         constrainedDrawLengthM,
       )
-      if (drawInteraction?.closePolygonPoint !== null) {
+      if (drawInteraction && drawInteraction.closePolygonPoint !== null) {
         refs.onCloseDrawingRef.current()
         return
       }
